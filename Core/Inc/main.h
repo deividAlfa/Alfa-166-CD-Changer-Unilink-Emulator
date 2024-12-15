@@ -64,6 +64,10 @@ extern DMA_HandleTypeDef hdma_memtomem_dma2_stream0;
 #define DEBUG_ALLOC
 
 
+
+#define ff_malloc  _malloc
+#define ff_free  _free
+
 #ifdef DEBUG_ALLOC
 extern uint32_t        max_allocated;
 extern struct mallinfo mi;
@@ -102,6 +106,12 @@ void DebugPulse(uint8_t pulses);
 #define UNILINK_CLOCK_GPIO_Port GPIOA
 #define UNILINK_DATA_Pin GPIO_PIN_6
 #define UNILINK_DATA_GPIO_Port GPIOA
+#define LCK_Pin GPIO_PIN_12
+#define LCK_GPIO_Port GPIOB
+#define BCK_Pin GPIO_PIN_13
+#define BCK_GPIO_Port GPIOB
+#define DOUT_Pin GPIO_PIN_15
+#define DOUT_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 #define LED_Pin_Pos   __get_GPIO_Pos(LED_Pin)
