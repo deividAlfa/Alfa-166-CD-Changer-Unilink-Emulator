@@ -106,10 +106,12 @@ The ICS connection is as follows:<br>
 Only Data and Clock are used. Reset and Enable are not needed.
 
 
-The stm32 pinout is as follows:<br>
+  - Stm32 pinout:
+  ![IMAGE](/DOCS/stm32_pinout.png)
 
-![IMAGE](/DOCS/stm32_pinout.png)
 
+  - PCM5102A connection:
+  ![IMAGE](/DOCS/PCM5102A.jpg)
 
 Some STM32F411 boards have an issue with USB OTG not working.<br>
 This is caused by diode, not allowing the power to go from the board to the USB.<br>
