@@ -89,29 +89,30 @@ The debugging data is sent using the serial port, and also through the SWO pin.<
 ## Connections
 
 The ICS connection is as follows:<br>
-![IMAGE](https://github.com/deividAlfa/Alfa-166-Unilink-CD-emulator/blob/main/DOCS/ICS_pinout.jpg)
-![IMAGE](https://github.com/deividAlfa/Alfa-166-Unilink-CD-emulator/blob/main/DOCS/ICS_pinout2.jpg)
-
-  - All "terminal 30" pins = 12V power
-  - Use any gnd pin - One is enough.
+![IMAGE](/DOCS/ICS_pinout.jpg)
+![IMAGE](/DOCS/ICS_pinout2.jpg)
   
   - Audio:
-    - Audio gnd: ICS F18 - Don't use other grounds as it might induce noise in the audio.
-    - Left input: ICS F19
-    - Right input: ICS F20
+    - Audio gnd: ICS C3-18 - Don't use other grounds as it might induce noise in the audio.
+    - Left input: ICS C3-19
+    - Right input: ICS C3-20
     
   - Unilink interface:
-    - Only Data and Clock are used. Reset and Enable are not needed.
-    - Clk: ICS F11, STM32 PA5.
-    - Data: ICS F10, STM32 PA6.
+    - Power: ICS C2-8, outputs 12V when switched on. You'll need a 5V voltage regulator for the STM32.
+    - Ground: ICS C2-9. This is missing in the picture but it's correct. Don't use this ground for audio.
+    - Data: ICS C2-10, STM32 PA6.
+    - Clk: ICS C2-11, STM32 PA5.
+    
+Only Data and Clock are used. Reset and Enable are not needed.
+
 
 The stm32 pinout is as follows:<br>
 
-![IMAGE](https://github.com/deividAlfa/Alfa-166-Unilink-CD-emulator/blob/main/DOCS/stm32_pinout.png)
+![IMAGE](/DOCS/stm32_pinout.png)
 
 
 Some STM32F411 boards have an issue with USB OTG not working.<br>
 This is caused by diode, not allowing the power to go from the board to the USB.<br>
 The diode was removed on later revisions of the board. The fix is easy, just replace the diode with a jumper:
 
-![IMAGE](https://github.com/deividAlfa/Alfa-166-Unilink-CD-emulator/blob/main/DOCS/411_OTGFIX.jpg)
+![IMAGE](/DOCS/411_OTGFIX.jpg)
