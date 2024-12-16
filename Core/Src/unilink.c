@@ -53,22 +53,16 @@ void unilink_spi_mode(unilink_mode_t mode);
 
 
 void unilink_init(SPI_HandleTypeDef* SPI, TIM_HandleTypeDef* tim){
+
   unilink.timer    = tim;
   unilink.SPI      = SPI;
-
-  for(uint8_t i=0;i<6;i++){
-    cd_data[i].tracks=99;
-    cd_data[i].mins=0;
-    cd_data[i].secs=0;
-    cd_data[i].present=0;
-  }
 
   mag_data.cmd2=0;                        // Clear CDs
   mag_data.CD1_present=1;                 // Set CD1 by default
   cd_data[0].tracks = 33;
   cd_data[0].mins=90;
   cd_data[0].secs=10;
-  cd_data[0].present=1;
+  cd_data[0].inserted=1;
 
   unilink.mag_changed=1;                    // XXX: Check this
 
@@ -93,7 +87,7 @@ void unilink_handle(void){
     else{
       unilink.bad_checksum=1;                           // Bad checksum, probably skipped a clock, resync by ignoring further data until master stops sending clocks and triggers a byte timeout.
       #ifdef DebugLog
-      putString("BAD CHECKSUM\n");
+      putString("BAD CHECKSUM\r\n");
       #endif
     }
   }
@@ -122,7 +116,7 @@ void unilink_handle(void){
       unilink_add_slave_break(cmd_cartridgeinfo);                   // Add slot msg
       unilink.disc=0;                               // First cd is 1. Set to 0 so the following loop works
       for(uint8_t i=0;i<6;i++){                     // Update magazine data
-        if(cd_data[i].present){
+        if(cd_data[i].inserted){
           if(unilink.disc==0){                      // Find first cd with files
             unilink.disc=i+1;                       // Set current disc ands track
             unilink.lastDisc=0;                     // reset last disc and track
@@ -142,7 +136,7 @@ void unilink_handle(void){
     unilink.mag_changed=0;                        // reset flag
     unilink.disc=0;                               // First cd is 1. Set to 0 so the following loop works
     for(uint8_t i=0;i<6;i++){                     // Update magazine data
-      if(cd_data[i].present){
+      if(cd_data[i].inserted){
         if(unilink.disc==0){                      // Find first cd with files
           unilink.disc=i+1;                       // Set current disc ands track
           unilink.lastDisc=0;                     // reset last disc and track
@@ -358,7 +352,7 @@ void unilink_myid_cmd(void){
         break;
       }
       if((mag_data.status!=mag_removed)&&(unilink.status!=unilink_ejecting)){  // If magazine is present and we are not ejecting      //FIXME: Ejecting check might be wrong?
-        if(cd_data[unilink.disc-1].present){              // If current selected disc is valid
+        if(cd_data[unilink.disc-1].inserted){              // If current selected disc is valid
           if(unilink.track>cd_data[unilink.disc-1].tracks){      // If current track is valid
             unilink.track=1;                    // Else, reset track
             unilink.lastTrack=1;
@@ -370,7 +364,7 @@ void unilink_myid_cmd(void){
         }
         else{
           for(uint8_t i=0;i<6;i++){                  // Else, find the first valid disc
-            if(cd_data[i].present){
+            if(cd_data[i].inserted){
               unilink.disc=i+1;
               unilink.lastDisc=i+1;
               unilink.track=1;
@@ -507,11 +501,12 @@ void unilink_myid_cmd(void){
         unilink_clear_slave_break_queue();
         unilink.lastDisc = unilink.disc;
         unilink.disc = disc;
-        unilink_add_slave_break(cmd_discinfo);
-        unilink_set_status(unilink_changing);
-        unilink_add_slave_break(cmd_status);
+        //unilink_add_slave_break(cmd_discinfo);
         unilink_set_status(unilink_changed);
         unilink_add_slave_break(cmd_status);
+        unilink_add_slave_break(cmd_magazine);
+        //unilink_set_status(unilink_changed);
+        //unilink_add_slave_break(cmd_status);
         /*
         unilink_set_status(unilink_changed);
         unilink_add_slave_break(cmd_status);
@@ -527,25 +522,19 @@ void unilink_myid_cmd(void){
         */
         //unilink_set_status(unilink_changing);
         if((mag_data.status!=mag_removed)&&(unilink.status!=unilink_ejecting)){
-          if(!cd_data[unilink.disc-1].present){      // If requested disc not present
+          if(!cd_data[unilink.disc-1].inserted){      // If requested disc not present
             mag_data.status=mag_slot_empty;
             unilink_add_slave_break(cmd_cartridgeinfo);              // Add empty slot msg
-            /*
-            unilink_set_status(unilink_changing);
-            unilink_add_slave_break(cmd_intro);              // Intro end
-            unilink_set_status(unilink_changing);
-            unilink_add_slave_break(cmd_status);            // Add empty slot msg
-            unilink_set_status(unilink_changing);
-            */
+
             for(uint8_t i=0;i<6;i++){                // Find next valid disc
-              if(cd_data[unilink.disc-1].present){
+              if(cd_data[unilink.disc-1].inserted){
                 break;
               }
               if(++unilink.disc>6){
                 unilink.disc=1;
               }
             }
-            if(!cd_data[unilink.disc-1].present){    // No discs on system
+            if(!cd_data[unilink.disc-1].inserted){    // No discs on system
               unilink.trackChanged = 0;             // Abort track change
               unilink_set_status(unilink_idle);              // Idle state
               //unilink_add_slave_break(cmd_status);          //
@@ -558,31 +547,26 @@ void unilink_myid_cmd(void){
               //unilink_add_slave_break(cmd_status);          // playing
             }
           }
-          /*
-          unilink_set_status(unilink_changed);
-          unilink_add_slave_break(cmd_status);
-          */
-          unilink_add_slave_break(cmd_magazine);
-          //unilink_add_slave_break(cmd_intro_end);
-          //unilink_add_slave_break(cmd_cfgchange);
-          //unilink_add_slave_break(cmd_dspdiscchange);
-          unilink_set_status(unilink_playing);
-          unilink_add_slave_break(cmd_status);
+          if(unilink.status != unilink_idle){
+            unilink_add_slave_break(cmd_discinfo);
+            unilink_add_slave_break(cmd_cfgchange);
+            unilink_add_slave_break(cmd_status);
+            unilink_add_slave_break(cmd_dspdiscchange);
+            unilink_add_slave_break(cmd_intro_end);
+            unilink_set_status(unilink_playing);
+            unilink_add_slave_break(cmd_status);
+          }
         }
         else{
           for(uint8_t i=0;i<6;i++){                // Find next valid disc
-            cd_data[unilink.disc-1].present=0;
+            cd_data[unilink.disc-1].inserted=0;
           }
-           uint8_t temp=mag_data.status;              // save status
            mag_data.status=mag_removed;
            unilink_add_slave_break(cmd_cartridgeinfo);                                // FIXME: Properly find how to deal with this
-           mag_data.status=temp;                  // Restore status
            unilink_set_status(unilink_idle);                // Idle state
            unilink_add_slave_break(cmd_status);                //
-           temp=mag_data.cmd2;
            mag_data.cmd2=0;
            unilink_add_slave_break(cmd_magazine);
-           mag_data.cmd2=temp;
            unilink.play=0;
         }
       }
@@ -716,10 +700,10 @@ void unilinkWarmReset(void){
   unilink.txCount    = 0;                               // Reset tx counter
   unilink.disc=0;
   for(uint8_t i=0;i<6;i++){                             // Update magazine data
-    if(cd_data[i].present){
+    if(cd_data[i].inserted){
       if(unilink.disc==0){                              // Find first cd with files
         unilink.disc=i+1;                               // Set current disc ands track
-        unilink.lastDisc=0;                            // reset last disc and track
+        unilink.lastDisc=i+1;                            // reset last disc and track
         unilink.track=1;
         unilink.lastTrack=0;
         unilink.min=0;                                  // reset playing time
@@ -748,9 +732,9 @@ void unilinkWarmReset(void){
 
 #ifdef DebugLog
   if(unilink.ownAddr == addr_reset)
-    putString("COLD RESET\n");
+    putString("COLD RESET\r\n");
   else
-    putString("WARM RESET\n");
+    putString("WARM RESET\r\n");
 #endif
 }
 
@@ -771,7 +755,7 @@ void unilink_wait_spi_busy(void){
   while(unilink.SPI->Instance->SR & SPI_SR_BSY){      // Wait until Busy is gone
     if(HAL_GetTick() > t){
 #ifdef DebugLog
-      putString("SPI Timeout! Resetting system\n");
+      putString("SPI Timeout! Resetting system\r\n");
       HAL_Delay(100);                                 // Some time to send the message just in case
 #endif
       __NVIC_SystemReset();                           // Busy is not going out, we've already tried everything, so reset the system (Should never happen)
@@ -950,12 +934,14 @@ void unilink_add_slave_break(uint8_t command){
     case cmd_time:                          // time info update
     {
       uint8_t msg[]=msg_time;
+      /*
       if(msg[4]<0x10){
         msg[4] |= 0xF0;
       }
       if(msg[5]<0x10){
         msg[5] |= 0xF0;
       }
+      */
 /*
       static uint8_t last;
       if(last==addr_master){
@@ -1003,9 +989,9 @@ void unilink_add_slave_break(uint8_t command){
       unilink_create_msg(msg,(uint8_t*)slaveBreak.data[i]);
       break;
     }
-    case cmd_intro:
+    case cmd_intro_end:
     {
-      uint8_t msg[]=msg_introend;
+      uint8_t msg[]=msg_intro_end;
       unilink_create_msg(msg,(uint8_t*)slaveBreak.data[i]);
       break;
     }
@@ -1030,7 +1016,7 @@ void unilink_add_slave_break(uint8_t command){
 void unilink_clear_slave_break_queue(void){
 #ifdef DebugLog
   if(slaveBreak.msg_state > break_msg_pending){
-    putString("Clear slave break: Busy, waiting...\n");   // Shouln't happen as this is called inmediately after receiving a B0 Goto command
+    putString("Clear slave break: Busy, waiting...\r\n");   // Shouln't happen as this is called inmediately after receiving a B0 Goto command
   }
 #endif
   while(slaveBreak.msg_state > break_msg_pending);               // If busy, wait until until completed
@@ -1159,7 +1145,7 @@ void unilink_tick(void){
   if(unilink.masterinit){                       // If >2000mS with no clock from master
     if(unilink.timeout > master_clk_timeout){
 #ifdef DebugLog
-      putString("Master Timeout\n");
+      putString("Master Timeout\r\n");
 #endif
       unilinkColdReset();                       // Warm reset (don't reset our ID)
     }
@@ -1174,13 +1160,13 @@ void unilink_tick(void){
   if(unilink.mode==mode_tx && (unilink.timeout > answer_clk_timeout)){
     if(slaveBreak.msg_state==break_msg_pendingTx){
 #ifdef DebugLog
-      putString("Slave msg timeout (Pending Tx)\n");
+      putString("Slave msg timeout (Pending Tx)\r\n");
 #endif
       slaveBreak.msg_state=break_msg_idle;
     }
     else if(unilink.txCount < unilink.txSize){               // We expect a timeout after sending a frame
 #ifdef DebugLog
-      putString("Answer Timeout (TX)\n");                  // Timeout while sending a frame!
+      putString("Answer Timeout (TX)\r\n");                  // Timeout while sending a frame!
 #endif
     }
     unilink.timeout=0;
@@ -1193,7 +1179,7 @@ void unilink_byte_timeout(void){
     if(unilink.rxCount && unilink.rxCount<unilink.rxSize){
 #ifdef DebugLog
       if(unilink.rxData[cmd1]!=cmd_seek)                            // This command always causes timeout for the ICS
-        putString("Byte timeout (RX)\n");
+        putString("Byte timeout (RX)\r\n");
 #endif
       unilink_spi_mode(mode_rx);                                  // Set RX mode
     }
@@ -1205,12 +1191,12 @@ void unilink_byte_timeout(void){
     if(slaveBreak.msg_state==break_msg_sending){
       slaveBreak.msg_state=break_msg_idle;
 #ifdef DebugLog
-      putString("Slave msg byte timeout (TX)\n");
+      putString("Slave msg byte timeout (TX)\r\n");
 #endif
     }
     else if(unilink.txCount<unilink.txSize){
 #ifdef DebugLog
-      putString("Byte timeout (TX)\n");
+      putString("Byte timeout (TX)\r\n");
 #endif
     }
     unilink_spi_mode(mode_rx);                                  // Set RX mode
