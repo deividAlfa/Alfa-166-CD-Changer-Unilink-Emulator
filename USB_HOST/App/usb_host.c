@@ -118,24 +118,24 @@ static void USBH_UserProcess  (USBH_HandleTypeDef *phost, uint8_t id)
   case HOST_USER_DISCONNECTION:
   Appli_state = APPLICATION_DISCONNECT;
   if((systemStatus.driveStatus==drive_ready)||(systemStatus.driveStatus==drive_mounted)){
-    iprintf("SYSTEM: Device removed while mounted\n");
+    iprintf("SYSTEM: Device removed while mounted\r\n");
     systemStatus.driveStatus=drive_removed;
   }
   else{
-    iprintf("SYSTEM: Device removed\n");
+    iprintf("SYSTEM: Device removed\r\n");
     systemStatus.driveStatus=drive_nodrive;
   }
   break;
 
   case HOST_USER_CLASS_ACTIVE:
   Appli_state = APPLICATION_READY;
-  iprintf("SYSTEM: Device ready\n");
+  iprintf("SYSTEM: Device ready\r\n");
   systemStatus.driveStatus=drive_inserted;
   break;
 
   case HOST_USER_CONNECTION:
   Appli_state = APPLICATION_START;
-  iprintf("SYSTEM: Device connected\n");
+  iprintf("SYSTEM: Device connected\r\n");
   break;
 
   default:

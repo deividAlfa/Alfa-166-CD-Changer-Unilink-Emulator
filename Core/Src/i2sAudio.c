@@ -34,7 +34,7 @@ void handleAudio(void){
   }
   if(systemStatus.underflow){
     systemStatus.underflow=0;
-    iprintf("AUDIO: Buffer underflow!\n");
+    iprintf("AUDIO: Buffer underflow!\r\n");
   }
 	if(systemStatus.audioStatus != audio_play && systemStatus.driveStatus == drive_ready && systemStatus.fileStatus == file_opened){
 		AudioStart();
@@ -91,7 +91,7 @@ void AudioStart(void){
         break;
 
       default:
-        iprintf("AUDIO: Skipping unknown filetype!\n");
+        iprintf("AUDIO: Skipping unknown filetype!\r\n");
         AudioStop();
         return;
     }
@@ -115,12 +115,12 @@ void AudioStart(void){
       HAL_I2S_Transmit_DMA(i2sHandle, (uint16_t*)systemStatus.PCMbuffer, systemStatus.PCMSamples);   // Start I2S DMA
       systemStatus.audioStatus=audio_play;							                // Status = playing
     }
-    iprintf("AUDIO: Playback started\n");
+    iprintf("AUDIO: Playback started\r\n");
   }
   else if(systemStatus.audioStatus==audio_pause){
     systemStatus.audioStatus=audio_play;                              // Status = playing
     HAL_I2S_DMAResume(i2sHandle);
-    iprintf("AUDIO: Playback resumed\n\n");
+    iprintf("AUDIO: Playback resumed\r\n\r\n");
   }
 }
 
@@ -145,7 +145,7 @@ void AudioStop(void){
     systemStatus.PCMbuffer = NULL;
   }
   closeFile();
-	iprintf("AUDIO: Playback stopped\n\n");
+	iprintf("AUDIO: Playback stopped\r\n\r\n");
 }
 
 void AudioNext(void){
@@ -161,7 +161,7 @@ void AudioPause(void){
   if(systemStatus.audioStatus==audio_play){
     HAL_I2S_DMAPause(i2sHandle);
     systemStatus.audioStatus = audio_pause;                // Playback paused
-    iprintf("AUDIO: Playback paused\n\n");
+    iprintf("AUDIO: Playback paused\r\n\r\n");
   }
 }
 

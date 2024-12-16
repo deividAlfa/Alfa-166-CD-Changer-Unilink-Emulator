@@ -208,7 +208,7 @@ typedef struct {
 }unilink_t;
 
 
-#define BrkSiz              10
+#define BrkSiz              16
 typedef struct{
   volatile uint8_t          dataTime;         // For measuring data high/low states
   volatile uint16_t         lost;             // Counter for discarded slavebreaks if the queue was full
@@ -239,11 +239,10 @@ typedef struct{
 }magazine_t;
 
 typedef struct{
-  volatile bool     present;
+  volatile bool     inserted;
   volatile uint8_t  tracks;
   volatile uint8_t  mins;
   volatile uint8_t  secs;
-  volatile uint8_t  disc;
 }cdinfo_t;
 
 
@@ -261,7 +260,7 @@ extern cdinfo_t     cd_data[6];
 #define   msg_mag_slot_empty   { addr_master,  unilink.ownAddr, cmd_cartridgeinfo, mag_slot_empty, 0x20 ,0x00 ,0x00, (unilink.disc<<4) }
 #define   msg_cartridge_info   { addr_master,  unilink.ownAddr, cmd_cartridgeinfo, mag_data.status, 0x20 ,0x00 ,0x00, (unilink.disc<<4) }                       //  XXX: Unused?
 #define   msg_dspchange        { addr_dsp,     unilink.ownAddr, cmd_dspdiscchange, 0x00, 0x00, 0x00, 0x00, ((unilink.disc<<4)|0x8) }
-#define   msg_introend         { addr_master,  unilink.ownAddr, cmd_intro, 0x10, 0x00, 0x00, 0x01, (unilink.disc<<4) }
+#define   msg_intro_end        { addr_master,  unilink.ownAddr, cmd_intro_end, 0x10, 0x00, 0x00, 0x01, (unilink.disc<<4) }
 #define   msg_discinfo_empty   { addr_master,  unilink.ownAddr, cmd_discinfo, 0x01, 0x99, 0x00, 0x00, 0x01 }
 #define   msg_discinfo         { addr_master,  unilink.ownAddr, cmd_discinfo, 0x01, hex2bcd(cd_data[unilink.disc-1].tracks), hex2bcd(cd_data[unilink.disc-1].mins), hex2bcd(cd_data[unilink.disc-1].secs), (unilink.disc<<4) }
 #define   msg_status           { addr_master,  unilink.ownAddr, cmd_status, unilink.status }

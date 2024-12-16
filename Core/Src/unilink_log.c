@@ -109,7 +109,7 @@ void unilinkLog(void){
         }
         else if(!slaveBreak.dataTime){              // Timer expired, data low end, break executed
           state=break_wait_data_low;                      // Reset status
-          putString("SLAVE BREAK\n");
+          putString("SLAVE BREAK\r\n");
         }
       }
     }
@@ -157,12 +157,23 @@ void unilinkLog(void){
 #ifdef Detail_Log
   str[i]=0;
 #else
-  str[i]='\n';
+  str[i]='\r\n';
 #endif
     putString(str);
 
   // Print info
 #ifdef Detail_Log                                   // Add separator for the comments
+
+  if(size<unilink_medium){
+    putString("                                    ");      // For Wifi terminal app
+  }
+  else if(size<unilink_long){
+    putString("      ");
+  }
+  else{
+    putString("    ");
+  }
+  /*                                              // For normal use
   if(size<unilink_medium){
     putString("                 ");
   }
@@ -172,46 +183,46 @@ void unilinkLog(void){
   else{
     putString("    ");
   }
-
+*/
   switch(unilink.logData[cmd1]){
     case cmd_status:
       putString("STATUS: ");
 
       switch(unilink.logData[cmd2]){
         case 0x00:
-          putString("Playing\n");
+          putString("Playing\r\n");
           break;
 
         case 0x20:
-          putString("Changed CD\n");
+          putString("Changed CD\r\n");
           break;
 
         case 0x21:
-          putString("Seeking\n");
+          putString("Seeking\r\n");
           break;
 
         case 0x40:
-          putString("Changing CD\n");
+          putString("Changing CD\r\n");
           break;
 
         case 0x80:
-          putString("idle\n");
+          putString("idle\r\n");
           break;
 
         case 0xC0:
-          putString("Ejecting\n");
+          putString("Ejecting\r\n");
           break;
 
         case 0xF0:
-          putString("2nd level seek pressed\n");
+          putString("2nd level seek pressed\r\n");
           break;
 
         case 0xFA:
-          putString("2nd level seek released\n");
+          putString("2nd level seek released\r\n");
           break;
 
         default:
-          putString("???\n");
+          putString("???\r\n");
         }
       break;
 
@@ -219,35 +230,35 @@ void unilinkLog(void){
       putString("MASTER REQUEST: ");
       switch(unilink.logData[cmd2]){
       case cmd_busReset:
-        putString("Bus reset\n");
+        putString("Bus reset\r\n");
         break;
 
       case cmd_anyone:
-        putString("Anyone?\n");
+        putString("Anyone?\r\n");
         break;
 
       case cmd_anyoneSpecial:
-        putString("Anyone special?\n");
+        putString("Anyone special?\r\n");
         break;
 
       case cmd_appointEnd:
-        putString("Appoint end\n");
+        putString("Appoint end\r\n");
         break;
 
       case cmd_timePollEnd:
-        putString("Time poll end\n");
+        putString("Time poll end\r\n");
         break;
 
       case cmd_timePoll:
-        putString("Time poll\n");
+        putString("Time poll\r\n");
         break;
 
       case cmd_slavePoll:
-        putString("Slave poll\n");
+        putString("Slave poll\r\n");
         break;
 
       default:
-        putString("???\n");
+        putString("???\r\n");
       }
       break;
 
@@ -255,11 +266,11 @@ void unilinkLog(void){
       putString("CONFIG FROM MASTER: ");
       switch(unilink.logData[cmd2]){
         case 0x01:
-          putString("Tell slave about assigned ID\n");
+          putString("Tell slave about assigned ID\r\n");
           break;
 
         default:
-          putString("???\n");
+          putString("???\r\n");
       }
       break;
 
@@ -267,63 +278,63 @@ void unilinkLog(void){
       putString("KEY OFF: ");
       switch(unilink.logData[cmd2]){
         case 0x00:
-          putString("Released\n");
+          putString("Released\r\n");
           break;
 
         default:
-          putString("???\n");
+          putString("???\r\n");
       }
       break;
 
     case cmd_play:
-      putString("Play\n");
+      putString("Play\r\n");
       break;
 
     case cmd_fastFwd:
-      putString("Fast Forward\n");
+      putString("Fast Forward\r\n");
       break;
 
     case cmd_fastRwd:
-      putString("Fast Rewind\n");
+      putString("Fast Rewind\r\n");
       break;
 
     case cmd_repeat:
-      putString("Toggle Repeat\n");
+      putString("Toggle Repeat\r\n");
       break;
 
     case cmd_shuffle:
-      putString("Togggle Shuffle\n");
+      putString("Togggle Shuffle\r\n");
       break;
 
     case cmd_intro:
-      putString("Toggle Intro\n");
+      putString("Toggle Intro\r\n");
       break;
 
     case cmd_intro_end:
-      putString("Intro end\n");
+      putString("Intro end\r\n");
       break;
 
     case cmd_cfgchange:
-      putString("CFG CHANGE\n");
+      putString("CFG CHANGE\r\n");
       break;
 
     case cmd_switch:
-      putString("Switch to ?\n");
+      putString("Switch to ?\r\n");
       break;
 
     case cmd_textRequest:
       putString("REQUEST FIELD: ");
       switch(unilink.logData[cmd2]){
         case 0x95:
-          putString("MAGAZINE INFO\n");
+          putString("MAGAZINE INFO\r\n");
           break;
 
         case 0x97:
-          putString("DISC INFO\n");
+          putString("DISC INFO\r\n");
           break;
 
         default:
-          putString("???\n");
+          putString("???\r\n");
       }
       break;
 
@@ -331,24 +342,24 @@ void unilinkLog(void){
       putString("Power ");
       switch(unilink.logData[cmd2]){
         case cmd_pwroff:
-          putString("OFF\n");
+          putString("OFF\r\n");
           break;
 
         case cmd_pwron:
-          putString("ON\n");
+          putString("ON\r\n");
           break;
 
         default:
-          putString("???\n");
+          putString("???\r\n");
       }
       break;
 
     case 0x88:
-      putString("From master to group ID after Anyone special\n");
+      putString("From master to group ID after Anyone special\r\n");
       break;
 
     case cmd_anyoneResp:
-      putString("Send slave ID\n");
+      putString("Send slave ID\r\n");
       break;
 
     case cmd_cartridgeinfo:
@@ -356,27 +367,27 @@ void unilinkLog(void){
       switch(unilink.logData[cmd2]){
         case 0x40:
         {
-          char s[3] = { '0'+(unilink.logData[d4]>>4), '\n', 0 };
+          char s[4] = { '0'+(unilink.logData[d4]>>4), '\r', '\n', 0 };
           putString("Slot empty for disc ");
           putString(s);
           break;
         }
         case 0x80:
-          putString("Magazine inserted\n");
+          putString("Magazine inserted\r\n");
           break;
 
         case 0xC0:
-          putString("No magazine\n");
+          putString("No magazine\r\n");
           break;
 
         default:
-          putString("???\n");
+          putString("???\r\n");
       }
       break;
 
     case cmd_time:
     {
-      char s[4] = {0};
+      char s[5] = {0};
 
       putString("TIME: ");
       if(unilink.logData[cmd2]!=0)
@@ -395,7 +406,8 @@ void unilinkLog(void){
 
       s[0]='0'+(unilink.logData[d3]>>4);
       s[1]='0'+(unilink.logData[d3]&0xF);
-      s[2]='\n';
+      s[2]='\r';
+      s[3]='\n';
       putString(s);
       break;
     }
@@ -413,12 +425,12 @@ void unilinkLog(void){
       putString(unilink.logData[cmd2]&0x01 ? "Y":"N");
       putString(" CD6:");
       putString(unilink.logData[cmd2]&0x02 ? "Y":"N");
-      putString("\n");
+      putString("\r\n");
       break;
 
     case cmd_discinfo:
     {
-      char s[5] = {0};
+      char s[6] = {0};
       putString("DISC INFO: ");
       putString("Disc:");
       s[0]='0'+(unilink.logData[d4]>>4);
@@ -440,13 +452,14 @@ void unilinkLog(void){
       s[0]='0'+(unilink.logData[d3]>>4);
       s[1]='0'+(unilink.logData[d3]&0xF);
       s[2]='s';
-      s[3]='\n';
+      s[3]='\r';
+      s[4]='\n';
       putString(s);
       break;
     }
     case cmd_dspdiscchange:
     {
-      char s[3] = { '0'+(unilink.logData[d4]>>4), '\n', 0 };
+      char s[4] = { '0'+(unilink.logData[d4]>>4), '\r', '\n', 0 };
       putString("To master after changing to disc ");
       putString(s);
       break;
@@ -465,18 +478,18 @@ void unilinkLog(void){
       s[0]='0'+(unilink.logData[d1]>>4);
       s[1]='0'+(unilink.logData[d1]&0xF);
       /*
-      s[2]='\n';            //XXX: removed for test
+      s[2]='\r\n';            //XXX: removed for test
       */
       putString(s);
-      putString("\t\t\t<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n");            //XXX: Added for test
+      putString("       ##########\r\n");            //XXX: Added for test
       break;
     }
     case cmd_source:
-      putString("Set source ?\n");
+      putString("Set source ?\r\n");
       break;
 
     default:
-      putString("???\n");
+      putString("???\r\n");
   }
 #endif
   // Finish

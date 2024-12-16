@@ -24,11 +24,11 @@ const char *folders[FOLDERS] = { "/CD01", "/CD02", "/CD03", "/CD04", "/CD05", "/
 static driveStatus_t driveStatus = drive_nodrive;
 
 void iprintfiles(void){
-  iprintf("File list:\n");
+  iprintf("File list:\r\n");
   for(uint8_t t=0; t<systemStatus.fileCount[unilink.disc-1];t++){
-    iprintf("\t%s\n",fileList[t]);
+    iprintf("\t%s\r\n",fileList[t]);
   }
-  iprintf("\n\n");
+  iprintf("\r\n\r\n");
 }
 
 
@@ -80,7 +80,7 @@ void scanFS(void){
       }
     }
     systemStatus.fileCount[i]=c;                                      // Store found file count
-    iprintf("%s: Found %3d files\n",folders[i],c);                   // Debug number of files found in folder
+    iprintf("%s: Found %3d files\r\n",folders[i],c);                   // Debug number of files found in folder
     i++;
   }
 }
@@ -89,15 +89,15 @@ void handleFS(void){
 
   if(systemStatus.driveStatus==drive_inserted){           // Drive present
     if( f_mount(systemStatus.fat, "", 1) != FR_OK ){
-        iprintf("SYSTEM: Failed to mount volume\n");
+        iprintf("SYSTEM: Failed to mount volume\r\n");
         systemStatus.driveStatus=drive_error;           //Failure on mount
     }
     else{
       if( f_opendir(&dir, "/") != FR_OK ){
-         iprintf("SYSTEM: Failed to open root dir\n");
+         iprintf("SYSTEM: Failed to open root dir\r\n");
       }
       else{
-        iprintf("SYSTEM: Drive mounted\n");
+        iprintf("SYSTEM: Drive mounted\r\n");
         driveStatus=drive_ready;
       }
     }
@@ -110,9 +110,9 @@ void handleFS(void){
       if(systemStatus.fileCount[i]){
         systemStatus.driveStatus = drive_ready;     // If any folder with audio files is found, set drive ready
         cd_data[i].tracks=systemStatus.fileCount[i];
-        cd_data[i].mins=80;
-        cd_data[i].secs=0;
-        cd_data[i].present=1;
+        cd_data[i].mins=99;
+        cd_data[i].secs=59;
+        cd_data[i].inserted=1;
         switch(i){                                  // Set mag data disc presence
           case 0:
             mag_data.CD1_present=1;
@@ -135,7 +135,7 @@ void handleFS(void){
         }
       }
       else{
-        cd_data[i].present=0;
+        cd_data[i].inserted=0;
         cd_data[i].tracks=99;
         cd_data[i].mins=0;
         cd_data[i].secs=0;
@@ -144,14 +144,14 @@ void handleFS(void){
     unilink.mag_changed=1;                          // set flag to update
 
     if(systemStatus.driveStatus != drive_ready){    // Something went wrong
-      iprintf("SYSTEM: No files found\n");
+      iprintf("SYSTEM: No files found\r\n");
       systemStatus.driveStatus=drive_error;         // No files
       return;
     }
   }
 
   if((systemStatus.driveStatus==drive_error) || (systemStatus.driveStatus==drive_removed)){ // if drive removed or error
-    iprintf("SYSTEM: Removing mounting point\n");
+    iprintf("SYSTEM: Removing mounting point\r\n");
     f_mount(0, "", 1);                              // remove mount point
     if(systemStatus.driveStatus==drive_removed){
       systemStatus.driveStatus=drive_nodrive;
@@ -192,7 +192,7 @@ uint8_t openFile(void){
 #if   (_USE_LFN)
       if(stricmp(currentType,  filetypes[t])==0){
 #else
-      if(strcmp(currentType,  filetypes[t])==0){
+        if(strcmp(currentType,  filetypes[t])==0){
 #endif
         if(t==file_mp3){
           systemStatus.filetype = file_mp3;
@@ -206,11 +206,11 @@ uint8_t openFile(void){
     }
   }
   if(f_chdir(folders[unilink.disc-1])!=FR_OK){               // Change dir
-    iprintf("Error opening folder \"%s\"\n",folders[unilink.disc-1]);
+    iprintf("Error opening folder \"%s\"\r\n",folders[unilink.disc-1]);
     return FR_DISK_ERR;
   }
   if( f_open(systemStatus.file, (char *)fileList[unilink.track-1], FA_READ) != FR_OK){        // Open file
-    iprintf("SYSTEM: Error opening file\n");
+    iprintf("SYSTEM: Error opening file\r\n");
     systemStatus.driveStatus=drive_error;                                     // No files
     return FR_DISK_ERR;
   }
@@ -218,7 +218,7 @@ uint8_t openFile(void){
   systemStatus.file->cltbl = clmt;                                                      // Enable fast seek feature (cltbl != NULL)
   if( f_lseek(systemStatus.file, CREATE_LINKMAP) != FR_OK ){                          // Create CLMT
     f_close( systemStatus.file );
-    iprintf("SYSTEM: FatFS Seek error\n");
+    iprintf("SYSTEM: FatFS Seek error\r\n");
     return FR_DISK_ERR;
   }
 #if   (_USE_LFN)
@@ -226,9 +226,9 @@ uint8_t openFile(void){
   while(fil.fname[0] && strcmp(fil.altname, (char *)fileList[unilink.track-1])!=0){                    // Stop when no file found, last file or exceeded max file count
     f_findnext(&dir, &fil);                                     // Find next file
   }
-  iprintf("SYSTEM: Opened file: %s\n", fil.fname);
+  iprintf("SYSTEM: Opened file: %s\r\n", fil.fname);
 #else
-  iprintf("SYSTEM: Opened file: %s\n", (char *)fileList[unilink.track-1]);
+  iprintf("SYSTEM: Opened file: %s\r\n", (char *)fileList[unilink.track-1]);
 #endif
   systemStatus.audioChannels=audio_stereo;
   systemStatus.audioRate = audio_44KHz;
@@ -255,18 +255,18 @@ uint8_t restorelast(void){
   //strcpy(systemStatus.lastFile,"1.TXT");
 
   if((systemStatus.lastPath[0]!=0)&&(systemStatus.lastFile[0]!=0)){   // If stored path and file
-    iprintf("Stored path: \"%s\"\n",systemStatus.lastPath);
-    iprintf("Stored file: \"%s\"\n",systemStatus.lastFile);
+    iprintf("Stored path: \"%s\"\r\n",systemStatus.lastPath);
+    iprintf("Stored file: \"%s\"\r\n",systemStatus.lastFile);
   }
   else if( (systemStatus.lastFile[0]==0)||(systemStatus.lastPath[0]==0)){ // If any not stored, reset stored data
     systemStatus.lastFile[0]=0;
     systemStatus.lastPath[0]=0;
-    iprintf("No previous stored file\n");
+    iprintf("No previous stored file\r\n");
     uint8_t i=0;
     while(i<6){
       if(systemStatus.fileCnt[i]){                  // search first CD folder with files
         strcpy(systemStatus.lastPath,paths[i]);           // store folder path
-        iprintf("Found %3d files in \"%s\"\n",systemStatus.fileCnt[i],paths[i]);
+        iprintf("Found %3d files in \"%s\"\r\n",systemStatus.fileCnt[i],paths[i]);
         break;
       }
       i++;
@@ -278,41 +278,41 @@ uint8_t restorelast(void){
   }
   res = f_chdir(systemStatus.lastPath);               // Change dir
   if(res){
-    iprintf("Error opening folder \"%s\"\n",systemStatus.lastPath);
+    iprintf("Error opening folder \"%s\"\r\n",systemStatus.lastPath);
     return FR_DISK_ERR;
   }
   if(systemStatus.lastFile[0]!=0){
     res = f_open(&fp, systemStatus.lastFile, FA_READ);        // Open stored file
     if(res==FR_OK){
 
-      iprintf("Opened File: \"%s\"\n",systemStatus.lastFile);
+      iprintf("Opened File: \"%s\"\r\n",systemStatus.lastFile);
       fp.cltbl = clmt;
        clmt[0] = SZ_TBL;
        res = f_lseek(&fp, CREATE_LINKMAP);
        if(res){
-         iprintf("Error creating linkmap\n");
+         iprintf("Error creating linkmap\r\n");
          return FR_DISK_ERR;
        }
-       iprintf("Linkmap file created\n");
+       iprintf("Linkmap file created\r\n");
       return FR_OK;                       // OK, done here
     }
     else{
-      iprintf("Error opening \"%s\"\n",systemStatus.lastFile);   // Error reading stored filenamew
+      iprintf("Error opening \"%s\"\r\n",systemStatus.lastFile);   // Error reading stored filenamew
     }
   }
   res = f_findfirst(&dp, &fno, systemStatus.lastPath, "*.MP3");       // Search first mp3 file
   if(res!=FR_OK){
-    iprintf("Error: No files found\n");                // No files found
+    iprintf("Error: No files found\r\n");                // No files found
     return FR_DISK_ERR;                       // We should have files from previous scan
   }
   strcpy(systemStatus.lastFile,fno.fname);              // OK, store filename
-  iprintf("Found  File: \"%s\"\n",fno.fname);
+  iprintf("Found  File: \"%s\"\r\n",fno.fname);
   res = f_open(&fp, systemStatus.lastFile, FA_READ);          // Open stored file
   if(res==FR_OK){
-    iprintf("Opened File: \"%s\"\n",systemStatus.lastFile);
+    iprintf("Opened File: \"%s\"\r\n",systemStatus.lastFile);
     return FR_OK;
   }
-  iprintf("Error opening \"%s\"\n",systemStatus.lastFile);   // Error
+  iprintf("Error opening \"%s\"\r\n",systemStatus.lastFile);   // Error
   return FR_DISK_ERR;
 }
 */

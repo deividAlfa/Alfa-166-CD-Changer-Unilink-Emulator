@@ -13,9 +13,9 @@
 #include "main.h"
 
 #define DebugLog                            // Enable debug output
-#define OnlyLog                             // Only sniff the bus, passive operation
+//#define OnlyLog                             // Only sniff the bus, passive operation
 #define Detail_Log                        // Enable to append command description to each decoded frame
-//#define EnableSerialLog                   // Print to the uart
+#define EnableSerialLog                   // Print to the uart
 
 #if defined (OnlyLog) && !defined (DebugLog)
 #define DebugLog

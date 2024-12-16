@@ -10,23 +10,10 @@
 #include "main.h"
 #include "unilink.h"
 
-#define SerFifoLen  128
 
-typedef struct{
-  volatile uint16_t LostinPutString;
-  volatile uint16_t LostinCallback;
-  volatile uint16_t errPutString;
-  volatile uint16_t errCallback;
-  volatile const char *      Queue[SerFifoLen];
-  volatile uint8_t  QueueLen[SerFifoLen];
-  volatile uint8_t  TxPos;
-  volatile uint8_t  BfPos;
-  volatile uint8_t  Pending;
-  UART_HandleTypeDef* uart;
-}serial_t;
-
+//#define SWO_PRINT
 
 void initSerial(UART_HandleTypeDef* huart);
 void putString(const char *str);
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart);
+void sendSerial(uint8_t *ptr, uint32_t len);
 #endif /* INC_SERIAL_H_ */

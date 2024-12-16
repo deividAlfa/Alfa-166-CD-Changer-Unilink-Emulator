@@ -24,6 +24,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "unilink_log.h"
 #ifdef AUDIO_SUPPORT
 #include "i2sAudio.h"
 #endif
@@ -53,13 +54,13 @@ SPI_HandleTypeDef hspi1;
 TIM_HandleTypeDef htim10;
 
 UART_HandleTypeDef huart1;
-DMA_HandleTypeDef hdma_usart1_tx;
 
 DMA_HandleTypeDef hdma_memtomem_dma2_stream0;
 /* USER CODE BEGIN PV */
 
 #ifdef DEBUG_ALLOC
-extern uint32_t _Min_Heap_Size;
+extern const unsigned int  _Min_Heap_Size;
+unsigned int _heap_size = (unsigned int) (&_Min_Heap_Size);
 struct mallinfo mi;
 uint32_t max_allocated;
 #endif
@@ -78,15 +79,6 @@ static void MX_I2S2_Init(void);
 void MX_USB_HOST_Process(void);
 
 /* USER CODE BEGIN PFP */
-int _write(int32_t file, uint8_t *ptr, int32_t len){
-  int32_t Len=len;
-	__disable_irq();
-	while(Len--){
-		ITM_SendChar(*ptr++);
-	}
-	__enable_irq();
-	return len;
-}
 
 #ifdef DEBUG_ALLOC
 void debug_heap(void){
@@ -112,7 +104,7 @@ int main(void)
   /* USER CODE BEGIN 1 */
 
 #ifdef DEBUG_ALLOC
-  uint8_t *mall = malloc(_Min_Heap_Size);   // Allocate all the heap possible and then free it. Now the system knows the heap size, and won't cause internal fragmentation.
+  uint8_t *mall = malloc(_heap_size);   // Allocate all the heap possible and then free it. Now the system knows the heap size, and won't cause internal fragmentation.
   if(mall==NULL){
     Error_Handler();                   // Failed to allocate heap
   }
@@ -148,26 +140,29 @@ int main(void)
   MX_SPI1_Init();
   MX_I2S2_Init();
   /* USER CODE BEGIN 2 */
-  HAL_Delay(500);								// Some delay before starting
-  /* USER CODE END 2 */
 
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
+  __HAL_DBGMCU_FREEZE_TIM10();
+  __HAL_DBGMCU_FREEZE_TIM11();
+  initSerial(&huart1);
 
 #ifdef DebugLog
-  putString("System init...\n\n");
+  putString("System init...\r\n");
   #ifdef DEBUG_ALLOC
   debug_heap();
 #endif
 #endif
-  __HAL_DBGMCU_FREEZE_TIM10();
-  __HAL_DBGMCU_FREEZE_TIM11();
-
 
   unilink_init(&hspi1, &htim10);
 #ifdef AUDIO_SUPPORT
   initAudio(&hi2s2);
 #endif
+
+  /* USER CODE END 2 */
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+
+
 
   while (1) {
 #ifdef AUDIO_SUPPORT
@@ -376,11 +371,11 @@ static void MX_USART1_UART_Init(void)
 
   /* USER CODE END USART1_Init 1 */
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 9600;
+  huart1.Init.BaudRate = 115200;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
-  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.Mode = UART_MODE_TX;
   huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart1.Init.OverSampling = UART_OVERSAMPLING_16;
   if (HAL_UART_Init(&huart1) != HAL_OK)
@@ -428,9 +423,6 @@ static void MX_DMA_Init(void)
   /* DMA1_Stream4_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Stream4_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream4_IRQn);
-  /* DMA2_Stream7_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Stream7_IRQn, 3, 0);
-  HAL_NVIC_EnableIRQ(DMA2_Stream7_IRQn);
 
 }
 
@@ -497,7 +489,7 @@ void Error_Handler(void)
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
-  iprintf("\nERROR HANDLER\n");
+  iprintf("\r\nERROR HANDLER\r\n");
   while (1)
   {
   }
@@ -516,7 +508,7 @@ void assert_failed(uint8_t *file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */
   /* User can add his own implementation to report the file name and line number,
-     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+     ex: printf("Wrong parameters value: file %s on line %d\r\r\n", file, line) */
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */

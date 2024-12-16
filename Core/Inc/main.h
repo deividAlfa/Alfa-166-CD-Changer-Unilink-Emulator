@@ -61,7 +61,7 @@ extern DMA_HandleTypeDef hdma_memtomem_dma2_stream0;
 
 
 #define AUDIO_SUPPORT
-#define DEBUG_ALLOC
+//#define DEBUG_ALLOC
 
 
 
