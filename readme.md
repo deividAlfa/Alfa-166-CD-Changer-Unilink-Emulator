@@ -52,21 +52,21 @@ Check "unilink.h" and "unilink.c".
 ## Debugging
 
 The firmware has different levels of debugging the Unilink data, see `unilink_log.h`.<br>
-- "DebugLog" will display the unilink frames in a readable format. It has two additional modifiers:
-  - "Detail_Log" will split the data frames within brackets, so the data and checksums can be read easier.
-  - "OnlyLog" will disable the slave interface and set the device in sniffer mode.<br>
+  - "Unilink_Log_Enable" will display the unilink frames in a readable format. It has two additional modifiers:
+  - "Unilink_Log_Detailed" will split the data frames within brackets, so the data and checksums can be read easier.
+  - "Unilink_Passive_Mode" will disable the slave interface and set the device in sniffer mode.<br>
   In this mode it can output the dialog between the ICS and the CD changer.
   
  Example log outputs:<br>
  
-####  Detail_Log disabled: 
+####  Unilink_Log_Detailed disabled: 
     31 10 01 13 55
     10 31 97 01 D9 20 79 46 10 C8
     31 10 01 13 55
     10 31 00 00 41
     31 11 B0 12 04 00 00 00 00 04  
     
-####  Detail_Log enabled: 
+####  Unilink_Log_Detailed enabled: 
     [31 10 01 13][55]                                    MASTER REQUEST: Slave poll
     [10 31 97 01][D9][20 79 46 10][C8]                   DISC INFO: Disc:1 Tracks:20 79m:46s
     [31 10 01 13][55]                                    MASTER REQUEST: Slave poll
