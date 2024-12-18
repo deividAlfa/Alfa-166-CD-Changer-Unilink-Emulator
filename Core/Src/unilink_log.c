@@ -6,12 +6,13 @@
  */
 
 #include "unilink_log.h"
+#include "serial.h"
 
 
-#ifdef DebugLog
+#ifdef Unilink_Log_Enable
 
 
-void unilinkLogUpdate(unilink_mode_t mode){
+void unilinkLogUpdate(unilink_SPImode_t mode){
   uint8_t *s;
 
   if(mode==mode_rx){
@@ -29,8 +30,25 @@ void unilinkLogUpdate(unilink_mode_t mode){
     unilink.logData[i]= *s++;
   }
 }
+void unlinkLogTimestamp(void){
+  uint32_t now=HAL_GetTick(), h, m, s, ms;
+  ms = now%1000;
+  now /= 1000;
+
+  h=now/3600;
+  now -= h*3600UL;
+
+  m=now/60;
+  now -= m*60;
+
+  s=now;
+
+  iprintf("%02lu:%02lu:%02lu.%03lu    ", h, m, s, ms);
+  fflush(stdout);
+}
 
 void unilinkLog(void){
+  static bool b_str;
   uint8_t size,count=0,i=0;
   char str[64] = {0};    // No need to set to 0
   size=unilink.logSize;
@@ -40,20 +58,20 @@ void unilinkLog(void){
     unilink.logTx=0;
   }
   else if(unilink.logRx){
-#ifndef OnlyLog
+#ifndef Unilink_Passive_Mode
     str[i++]='<';
     str[i++]=' ';
 #endif
     unilink.logRx=0;
   }
   else{
-#ifdef OnlyLog                                  // Detect slave breaks in OnlyLog mode
+#ifdef Unilink_Passive_Mode                                  // Detect slave breaks in Unilink_Passive_Mode mode
     static breakState_t state;
     switch(state){
       case break_wait_data_low:
       {
         if(isDataLow()){
-          slaveBreak.dataTime=6;                  // Wait for DATA line 7mS in low state
+          slaveBreak.dataTime=8;                  // Wait for DATA line 8mS in low state
           state++;
         }
         break;
@@ -72,8 +90,8 @@ void unilinkLog(void){
       }
       case break_wait_data_high:
       {
-        if(isDataHigh()){                      // Wait for DATA high
-          slaveBreak.dataTime=2;
+        if(isDataHigh()){                      // Wait for DATA high for 3ms
+          slaveBreak.dataTime=3;
           state++;
         }
         break;
@@ -86,7 +104,7 @@ void unilinkLog(void){
           }
         }
         else{
-          slaveBreak.dataTime=4;                    // Load timer with 4ms
+          slaveBreak.dataTime=3;                    // Load timer with 3ms
           state++;
         }
         break;
@@ -97,25 +115,45 @@ void unilinkLog(void){
           slaveBreak.dataTime=2;                    // Load timer with 2ms
           state=break_wait_data_keeplow;                 // Break started
         }
-        else if(!slaveBreak.dataTime){              // Timer expired,slave didn't toggle data low
+        else if(!slaveBreak.dataTime){    // Timer expired,slave didn't toggle data low
           state=break_wait_data_low;                      // Reset status
+          putString("S? ");
+          b_str=1;
         }
         break;
       }
       case break_wait_data_keeplow:
       {
-        if(isDataHigh()){
-          state=break_wait_data_low;                      // If DATA goes high before the timer expires, invalid break
-        }
-        else if(!slaveBreak.dataTime){              // Timer expired, data low end, break executed
+        if(!slaveBreak.dataTime){              // Timer expired, data low end, break executed
           state=break_wait_data_low;                      // Reset status
-          putString("SLAVE BREAK\r\n");
+          if(b_str){
+            putString("\r\n");
+            b_str=0;
+          }
+#ifdef Unilink_Log_Timestamp
+          unlinkLogTimestamp();
+#endif
+          putString("BREAK\r\n");
+        }
+        else if(isDataHigh()){
+          state=break_wait_data_low;                      // If DATA goes high before the timer expires, invalid break
+          putString("S! ");
+          b_str=1;
         }
       }
     }
 #endif
     return;
   }
+
+  if(b_str){
+    putString("\r\n");
+    b_str=0;
+  }
+#ifdef Unilink_Log_Timestamp
+  unlinkLogTimestamp();
+#endif
+
   //  Unilink frame structure
   //  char data[]= "00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00";
   //                0   1   2   3   4   5   6   7   8   9   10  11  12  13  14  15
@@ -126,7 +164,7 @@ void unilinkLog(void){
 
   // Print frame
   while(count<(size-1)){
-  #ifdef Detail_Log
+  #ifdef Unilink_Log_Detailed
     if(count==0){
       str[i++]='[';
     }
@@ -134,14 +172,14 @@ void unilinkLog(void){
     str[i++]=hex2ascii((unilink.logData[count])>>4);
     str[i++]=hex2ascii((unilink.logData[count])&0x0f);
     count++;
-#ifdef Detail_Log
+#ifdef Unilink_Log_Detailed
     if( count<parity1 || (count>(unilink_short-1) && (count<(size-2)))){
 #else
     if(count<size){
 #endif
         str[i++]=' ';
     }
-    #ifdef Detail_Log
+    #ifdef Unilink_Log_Detailed
     if(    (count==parity1) || (size>unilink_short && count==d1) ||         // Print fields between brackets [x]
         (size==unilink_medium && count==parity2) ||
         (size==unilink_long && count==parity2_L) ){
@@ -154,7 +192,7 @@ void unilinkLog(void){
     }
 #endif
   }
-#ifdef Detail_Log
+#ifdef Unilink_Log_Detailed
   str[i]=0;
 #else
   str[i]='\r\n';
@@ -162,8 +200,9 @@ void unilinkLog(void){
     putString(str);
 
   // Print info
-#ifdef Detail_Log                                   // Add separator for the comments
+#ifdef Unilink_Log_Detailed                                   // Add separator for the comments
 
+    /*
   if(size<unilink_medium){
     putString("                                    ");      // For Wifi terminal app
   }
@@ -173,7 +212,7 @@ void unilinkLog(void){
   else{
     putString("    ");
   }
-  /*                                              // For normal use
+*/                                          // For normal use
   if(size<unilink_medium){
     putString("                 ");
   }
@@ -183,7 +222,6 @@ void unilinkLog(void){
   else{
     putString("    ");
   }
-*/
   switch(unilink.logData[cmd1]){
     case cmd_status:
       putString("STATUS: ");

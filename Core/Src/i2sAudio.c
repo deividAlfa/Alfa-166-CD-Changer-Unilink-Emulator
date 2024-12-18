@@ -9,9 +9,14 @@
 #include "files.h"
 #include "mp3Decoder.h"
 #include "wavDecoder.h"
+#include "unilink.h"
+
+#if defined AUDIO_SUPPORT || defined Unilink_Passive_Mode
+system_t systemStatus;
+#endif
+
 #ifdef AUDIO_SUPPORT
 
-system_t systemStatus;
 static I2S_HandleTypeDef *i2sHandle;
 extern FIL USBHFile;
 extern FATFS USBHFatFS;

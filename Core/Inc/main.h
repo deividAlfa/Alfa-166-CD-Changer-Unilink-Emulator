@@ -39,9 +39,8 @@ extern "C" {
 #include <malloc.h>
 
 #include "unilink.h"
-#include "serial.h"
-#include "files.h"
 #include "gpio.h"
+#include "config.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -58,11 +57,6 @@ extern DMA_HandleTypeDef hdma_memtomem_dma2_stream0;
 
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
-
-
-#define AUDIO_SUPPORT
-//#define DEBUG_ALLOC
-
 
 
 #define ff_malloc  _malloc

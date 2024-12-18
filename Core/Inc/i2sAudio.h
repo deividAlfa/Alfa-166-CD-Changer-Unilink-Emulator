@@ -64,6 +64,7 @@ typedef struct{
 	audioStatus_t		audioRate;			    // 16KHz, 32KHz, 48KHz
 	audioStatus_t		audioStatus;		    // Idle, Playing, Stopped(after playing)
 }system_t;
+
 extern system_t systemStatus;
 
 void initAudio(I2S_HandleTypeDef *hi2s);

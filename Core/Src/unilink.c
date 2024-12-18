@@ -17,7 +17,7 @@
 #include "unilink.h"
 #include "unilink_log.h"
 #include "i2sAudio.h"
-#include "main.h"
+#include "serial.h"
 
 /****************************************************************
  *             VARIABLES                *
@@ -47,8 +47,8 @@ void unilink_clear_slave_break_queue(void);
 void unilink_handle_slave_break(void);
 void unilink_slave_msg(void);
 void unilink_tx(uint8_t *msg, volatile uint8_t *dest);
-void unilink_data_mode(unilink_mode_t mode);
-void unilink_spi_mode(unilink_mode_t mode);
+void unilink_data_mode(unilink_DATAmode_t mode);
+void unilink_spi_mode(unilink_SPImode_t mode);
 
 
 
@@ -74,19 +74,19 @@ void unilink_init(SPI_HandleTypeDef* SPI, TIM_HandleTypeDef* tim){
 }
 
 void unilink_handle(void){
-  #ifdef DebugLog
+  #ifdef Unilink_Log_Enable
   unilinkLog();
   #endif
   if(unilink.received){
     unilink.received=0;                               // do a parity check of received packet and proceed if OK
     if(unilink_checksum()){                           // If checksum ok...
-      #ifndef OnlyLog
+      #ifndef Unilink_Passive_Mode
       unilink_parse();
       #endif
     }
     else{
       unilink.bad_checksum=1;                           // Bad checksum, probably skipped a clock, resync by ignoring further data until master stops sending clocks and triggers a byte timeout.
-      #ifdef DebugLog
+      #ifdef Unilink_Log_Enable
       putString("BAD CHECKSUM\r\n");
       #endif
     }
@@ -179,7 +179,7 @@ void unilink_handle(void){
   }
 #endif
 
-#ifndef OnlyLog
+#ifndef Unilink_Passive_Mode
   unilink_handle_slave_break();                     // Handle slave break events
 #endif
 
@@ -730,7 +730,7 @@ void unilinkWarmReset(void){
 
   unilink_reset_playback_time();
 
-#ifdef DebugLog
+#ifdef Unilink_Log_Enable
   if(unilink.ownAddr == addr_reset)
     putString("COLD RESET\r\n");
   else
@@ -738,7 +738,7 @@ void unilinkWarmReset(void){
 #endif
 }
 
-void unilink_data_mode(unilink_mode_t mode){
+void unilink_data_mode(unilink_DATAmode_t mode){
   if(mode==mode_SPI){    // SPI DATA
     setPinMode(UNILINK_DATA_GPIO_Port, UNILINK_DATA_Pin, MODE_AF);
   }
@@ -754,7 +754,7 @@ void unilink_wait_spi_busy(void){
   uint32_t t = HAL_GetTick()+2;                       // 2ms timeout should be more than enough
   while(unilink.SPI->Instance->SR & SPI_SR_BSY){      // Wait until Busy is gone
     if(HAL_GetTick() > t){
-#ifdef DebugLog
+#ifdef Unilink_Log_Enable
       putString("SPI Timeout! Resetting system\r\n");
       HAL_Delay(100);                                 // Some time to send the message just in case
 #endif
@@ -763,7 +763,7 @@ void unilink_wait_spi_busy(void){
   }
 }
 
-void unilink_spi_mode(unilink_mode_t mode){
+void unilink_spi_mode(unilink_SPImode_t mode){
   __HAL_SPI_DISABLE(unilink.SPI);
   __HAL_SPI_CLEAR_OVRFLAG(unilink.SPI);
   __HAL_SPI_CLEAR_FREFLAG(unilink.SPI);
@@ -826,15 +826,25 @@ void unilink_spi_mode(unilink_mode_t mode){
   }
 
   if(mode == mode_rx){
+    /*
+    unilink.SPI->Init.CLKPolarity = SPI_POLARITY_LOW;
+    unilink.SPI->Init.CLKPhase = SPI_PHASE_2EDGE;
+    */
     unilink.mode = mode_rx;
     SPI_1LINE_RX(unilink.SPI);
     __HAL_SPI_ENABLE_IT(unilink.SPI, (SPI_IT_RXNE | SPI_IT_ERR));
   }
   else{
+    /*
+    unilink.SPI->Init.CLKPolarity = SPI_POLARITY_LOW;
+    unilink.SPI->Init.CLKPhase = SPI_PHASE_2EDGE;
+    */
     unilink.mode = mode_tx;                                 // Enable Tx mode
     SPI_1LINE_TX(unilink.SPI);
     __HAL_SPI_ENABLE_IT(unilink.SPI, (SPI_IT_TXE | SPI_IT_ERR));
   }
+
+  //MODIFY_REG(unilink.SPI->Instance->CR1, SPI_CR1_CPHA | SPI_CR1_CPOL, unilink.SPI->Init.CLKPolarity | unilink.SPI->Init.CLKPhase);
   __HAL_SPI_ENABLE(unilink.SPI);
 }
 
@@ -1014,7 +1024,7 @@ void unilink_add_slave_break(uint8_t command){
 }
 
 void unilink_clear_slave_break_queue(void){
-#ifdef DebugLog
+#ifdef Unilink_Log_Enable
   if(slaveBreak.msg_state > break_msg_pending){
     putString("Clear slave break: Busy, waiting...\r\n");   // Shouln't happen as this is called inmediately after receiving a B0 Goto command
   }
@@ -1048,7 +1058,7 @@ void unilink_handle_slave_break(void){
   switch(slaveBreak.break_state){
     case break_wait_data_low:
       if(isDataLow()){
-        slaveBreak.dataTime=6;                      // Wait for DATA line 7mS in low state
+        slaveBreak.dataTime=8;                      // Wait for DATA line 8mS in low state
         slaveBreak.break_state++;
       }
       break;
@@ -1066,7 +1076,7 @@ void unilink_handle_slave_break(void){
 
     case break_wait_data_high:
       if(isDataHigh()){                             // Wait for DATA high
-        slaveBreak.dataTime=2;
+        slaveBreak.dataTime=4;
         slaveBreak.break_state++;
       }
       break;
@@ -1079,7 +1089,7 @@ void unilink_handle_slave_break(void){
       }
       else{
         unilink_data_mode(mode_output);             // Set DATA as GPIO output, low level
-        slaveBreak.dataTime=2;
+        slaveBreak.dataTime=4;
         slaveBreak.break_state++;
       }
       break;
@@ -1144,7 +1154,7 @@ void unilink_tick(void){
   unilink.timeout++;
   if(unilink.masterinit){                       // If >2000mS with no clock from master
     if(unilink.timeout > master_clk_timeout){
-#ifdef DebugLog
+#ifdef Unilink_Log_Enable
       putString("Master Timeout\r\n");
 #endif
       unilinkColdReset();                       // Warm reset (don't reset our ID)
@@ -1159,13 +1169,13 @@ void unilink_tick(void){
 
   if(unilink.mode==mode_tx && (unilink.timeout > answer_clk_timeout)){
     if(slaveBreak.msg_state==break_msg_pendingTx){
-#ifdef DebugLog
+#ifdef Unilink_Log_Enable
       putString("Slave msg timeout (Pending Tx)\r\n");
 #endif
       slaveBreak.msg_state=break_msg_idle;
     }
     else if(unilink.txCount < unilink.txSize){               // We expect a timeout after sending a frame
-#ifdef DebugLog
+#ifdef Unilink_Log_Enable
       putString("Answer Timeout (TX)\r\n");                  // Timeout while sending a frame!
 #endif
     }
@@ -1177,7 +1187,7 @@ void unilink_tick(void){
 void unilink_byte_timeout(void){
   if(unilink.mode==mode_rx){
     if(unilink.rxCount && unilink.rxCount<unilink.rxSize){
-#ifdef DebugLog
+#ifdef Unilink_Log_Enable
       if(unilink.rxData[cmd1]!=cmd_seek)                            // This command always causes timeout for the ICS
         putString("Byte timeout (RX)\r\n");
 #endif
@@ -1190,12 +1200,12 @@ void unilink_byte_timeout(void){
   else if(unilink.mode==mode_tx && (unilink.txCount>1)){                       // Byte timeout when sending a frame
     if(slaveBreak.msg_state==break_msg_sending){
       slaveBreak.msg_state=break_msg_idle;
-#ifdef DebugLog
+#ifdef Unilink_Log_Enable
       putString("Slave msg byte timeout (TX)\r\n");
 #endif
     }
     else if(unilink.txCount<unilink.txSize){
-#ifdef DebugLog
+#ifdef Unilink_Log_Enable
       putString("Byte timeout (TX)\r\n");
 #endif
     }
@@ -1210,6 +1220,7 @@ void unilink_byte_timeout(void){
  *   a byte was received or sent                  *
  *                                 *
  ****************************************************************/
+/*
 void unilink_callback(void){
   __HAL_TIM_SET_COUNTER(unilink.timer, 0);        // Reset timeout counter
   unilink.timeout=0;
@@ -1235,7 +1246,7 @@ void unilink_callback(void){
     }
     if(++unilink.rxCount>=unilink.rxSize){               // Increase counter, if packet complete
       unilink.rxCount=0;                                  // reset counter
-      #ifdef DebugLog
+      #ifdef Unilink_Log_Enable
       unilinkLogUpdate(mode_rx);                                    //
       #endif
       unilink.received=1;                                 // set RX complete status flag
@@ -1256,11 +1267,11 @@ void unilink_callback(void){
     }
     if(unilink.txCount == unilink.txSize){                // Last byte sent
       unilink.txCount++;
-      #ifdef DebugLog
+      #ifdef Unilink_Log_Enable
       unilinkLogUpdate(mode_tx);                                    //
       #endif
       if(slaveBreak.msg_state==break_msg_sending){               // Were we sending a slave response?
-        #ifdef DebugLog
+        #ifdef Unilink_Log_Enable
         unilink.logBreak=1;
         #endif
         slaveBreak.msg_state=break_msg_idle;                     // Done
@@ -1278,10 +1289,10 @@ void unilink_callback(void){
   }
 }
 
-/*
+*/
 void unilink_callback(void){
   __HAL_TIM_SET_COUNTER(unilink.timer, 0);        // Reset byte timeout counter
-  unilink.timeout=0;
+   unilink.timeout=0;
 
   if (unilink.mode==mode_rx && (unilink.SPI->Instance->CR2 & SPI_CR2_RXNEIE) && (unilink.SPI->Instance->SR & SPI_SR_RXNE)){                                      // If in receive mode
     uint8_t rx = ~*(__IO uint8_t *)&unilink.SPI->Instance->DR;          // store last received byte (inverted)
@@ -1306,7 +1317,7 @@ void unilink_callback(void){
         unilink.rxSize=unilink_short; }                                   // set packet size to short
     }
     if(++unilink.rxCount==unilink.rxSize){                //Packet complete
-      #ifdef DebugLog
+      #ifdef Unilink_Log_Enable
       unilinkLogUpdate(mode_rx);
       #endif
       unilink.received=1;                                 // set RX complete status flag
@@ -1330,15 +1341,11 @@ void unilink_callback(void){
     }
     else if(unilink.txCount == unilink.txSize){             // Last byte sent
       unilink.txCount++;                                    // Done. Increase txCount so we don't get there again in the following extra clocks sent by the master
-      #ifdef DebugLog                                       // When master stops sending clocks, the byte timeout will reset back to Rx mode.
+      #ifdef Unilink_Log_Enable                                       // When master stops sending clocks, the byte timeout will reset back to Rx mode.
       unilinkLogUpdate(mode_tx);
-      if(unilink.txData[cmd1]==cmd_discinfo){//TODO test
-        __NOP();
-      }
       #endif
-      HAL_GPIO_WritePin(BREAK_GPIO_Port, BREAK_Pin, 0);
       if(slaveBreak.msg_state==break_msg_sending){               // Were we sending a slave response?
-        #ifdef DebugLog
+        #ifdef Unilink_Log_Enable
         unilink.logBreak=1;
         #endif
         slaveBreak.msg_state=break_msg_idle;                     // Done
@@ -1352,4 +1359,4 @@ void unilink_callback(void){
     }
   }
 }
-*/
+

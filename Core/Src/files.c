@@ -21,7 +21,6 @@ extern system_t systemStatus;
 char fileList[MAXFILES][13];
 const char *filetypes[FILETYPES] = { "*.MP3", "*.WAV" };                                    // Files we are interested in
 const char *folders[FOLDERS] = { "/CD01", "/CD02", "/CD03", "/CD04", "/CD05", "/CD06" };    // Folder names
-static driveStatus_t driveStatus = drive_nodrive;
 
 void iprintfiles(void){
   iprintf("File list:\r\n");
@@ -95,18 +94,20 @@ void handleFS(void){
     else{
       if( f_opendir(&dir, "/") != FR_OK ){
          iprintf("SYSTEM: Failed to open root dir\r\n");
+         systemStatus.driveStatus=drive_error;           //Failure on mount
       }
       else{
         iprintf("SYSTEM: Drive mounted\r\n");
-        driveStatus=drive_ready;
+        systemStatus.driveStatus=drive_mounted;
       }
     }
   }
-  if(driveStatus==drive_ready && systemStatus.driveStatus==drive_inserted){
+  if(systemStatus.driveStatus==drive_mounted){
     systemStatus.fileStatus   = file_none;
     scanFS();
     mag_data.cmd2=0;                                // Clear disc presence flags
     for(uint8_t i=0;i<FOLDERS;i++){                       // Transfer file count to cd info (for unilink)
+
       if(systemStatus.fileCount[i]){
         systemStatus.driveStatus = drive_ready;     // If any folder with audio files is found, set drive ready
         cd_data[i].tracks=systemStatus.fileCount[i];

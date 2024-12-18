@@ -7,26 +7,28 @@
 #include "serial.h"
 #include "unilink_log.h"
 
-#ifdef DebugLog
+#ifdef Unilink_Log_Enable
 
-#ifdef EnableSerialLog
+#ifdef UART_PRINT
 static bool init=0;
 UART_HandleTypeDef* uart;
 #endif
 
 int _write(int32_t file, uint8_t *ptr, int32_t len){
   int32_t l=len;
+#ifdef UART_PRINT
   sendSerial(ptr, l);
-#ifdef SWO_PRINT
-  while(l--){
-    ITM_SendChar(*ptr++);
-  }
 #endif
+  while(l--){
+#ifdef SWO_PRINT
+    ITM_SendChar(*ptr++);
+#endif
+  }
   return len;
 }
 
 void initSerial(UART_HandleTypeDef* huart){
-#ifdef EnableSerialLog
+#ifdef UART_PRINT
   uart=huart;
   uart->Init.BaudRate = 1000000;
   HAL_UART_Init(uart);
@@ -42,7 +44,7 @@ void putString(const char *str){
 }
 
 void sendSerial(uint8_t *ptr, uint32_t len){
-#ifdef EnableSerialLog
+#ifdef UART_PRINT
   if(!init){ return; }
   HAL_UART_Transmit(uart, ptr, len, 100);
 #endif

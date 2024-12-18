@@ -8,10 +8,7 @@
 #ifndef INC_SERIAL_H_
 #define INC_SERIAL_H_
 #include "main.h"
-#include "unilink.h"
 
-
-//#define SWO_PRINT
 
 void initSerial(UART_HandleTypeDef* huart);
 void putString(const char *str);

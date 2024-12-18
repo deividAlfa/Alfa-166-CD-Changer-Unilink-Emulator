@@ -56,13 +56,13 @@
 #define setPinPull(port,pin,pull)     port->PUPDR = (port->PUPDR & ~(__expand_16to32(pin))) | pull<<(__get_GPIO_Pos(pin)*2)
 
 // GPIOx_IDR
-#define readPin(port,pin)             (1&&(port->IDR & pin))
+#define readPin(port,pin)             ((port->IDR & pin)&&1)
 #define readPort(port)                port->IDR
 
 // GPIOx_ODR
 #define writePort(port,val)           port->ODR = val
 //#define togglePin(port,pin)          port->ODR = port->ODR^pin
-#define togglePin(port,pin)           port->BSRR = pin<<(16*!(readPin(port,pin)))
+#define togglePin(port,pin)           port->BSRR = (readPin(port,pin) ? pin<<16 : pin)
 
 // GPIOx_BSRR
 #define writePin(port,pin,val)        port->BSRR = pin<<(16*(!val))

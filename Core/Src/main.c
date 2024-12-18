@@ -25,6 +25,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "unilink_log.h"
+#include "serial.h"
 #ifdef AUDIO_SUPPORT
 #include "i2sAudio.h"
 #endif
@@ -145,7 +146,7 @@ int main(void)
   __HAL_DBGMCU_FREEZE_TIM11();
   initSerial(&huart1);
 
-#ifdef DebugLog
+#ifdef Unilink_Log_Enable
   putString("System init...\r\n");
   #ifdef DEBUG_ALLOC
   debug_heap();

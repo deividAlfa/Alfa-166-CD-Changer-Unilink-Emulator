@@ -12,18 +12,8 @@
 #include "unilink.h"
 #include "main.h"
 
-#define DebugLog                            // Enable debug output
-//#define OnlyLog                             // Only sniff the bus, passive operation
-#define Detail_Log                        // Enable to append command description to each decoded frame
-#define EnableSerialLog                   // Print to the uart
 
-#if defined (OnlyLog) && !defined (DebugLog)
-#define DebugLog
-#endif
-
-
-
-#ifdef DebugLog
+#ifdef Unilink_Log_Enable
 
 
 
@@ -80,7 +70,7 @@ typedef enum{
 
 
 
-void unilinkLogUpdate(unilink_mode_t mode);
+void unilinkLogUpdate(unilink_SPImode_t mode);
 void unilinkLog(void);
 #endif
 char hex2ascii(uint8_t hex);

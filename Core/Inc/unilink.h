@@ -27,24 +27,18 @@
 #define setDataHigh()       setPinHigh(UNILINK_DATA_GPIO_Port, UNILINK_DATA_Pin)
 #define setDataLow()        setPinLow(UNILINK_DATA_GPIO_Port, UNILINK_DATA_Pin)
 
-/* CRITICAL TIMING */
-#define answer_clk_timeout  10               // Timeout in ms waiting for master clock to send a response
-#define byte_clk_timeout    1300            // Timeout in us between bytes in a frame
-
-#define master_clk_timeout  2000            // Timeout in ms without master clock when idle
-
-#define MAXDISCS            6                 // Max discs in the system
 
 
+typedef enum {
+  mode_tx           = 0,
+  mode_rx           = 1,
+}unilink_SPImode_t;
 
 typedef enum {
   mode_SPI          = 0,
   mode_input        = 1,
   mode_output       = 2,
-
-  mode_tx           = 0,
-  mode_rx           = 1,
-}unilink_mode_t;
+}unilink_DATAmode_t;
 
 typedef enum{
   unilink_playing   = 0x00,
