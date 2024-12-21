@@ -7,11 +7,49 @@
 #include "serial.h"
 #include "unilink_log.h"
 
+#ifdef USB_LOG
+#include "fatfs.h"
+#include "i2sAudio.h"
+#include "usb_host.h"
+#endif
+
 #ifdef Unilink_Log_Enable
 
 #ifdef UART_PRINT
 static bool init=0;
 UART_HandleTypeDef* uart;
+#endif
+
+#ifdef USB_LOG
+#define BFSZ   2048
+
+char buf[2][BFSZ];
+uint16_t bi, bp;
+FIL logfile;
+FRESULT res;
+size_t logwritten;
+
+void write_log(char* s, uint16_t len){
+  size_t wr;
+  static bool new;
+
+  if(systemStatus.driveStatus!=drive_mounted) return;
+
+  res = f_chdir("/");
+  if(!new){
+    new=1;
+    res = f_open(&logfile, "log.txt", FA_CREATE_ALWAYS | FA_WRITE | FA_READ);
+  }
+  else{
+    res = f_open(&logfile, "log.txt", FA_OPEN_APPEND | FA_WRITE | FA_READ);
+  }
+  if(res!=FR_OK) systemStatus.driveStatus=drive_error;
+  res = f_write(&logfile, s, len, &wr);
+  if(res!=FR_OK || wr!=len) systemStatus.driveStatus=drive_error;
+  else logwritten += BFSZ;
+  res = f_close(&logfile);
+  if(res!=FR_OK) systemStatus.driveStatus=drive_error;
+}
 #endif
 
 int _write(int32_t file, uint8_t *ptr, int32_t len){
@@ -20,6 +58,17 @@ int _write(int32_t file, uint8_t *ptr, int32_t len){
   sendSerial(ptr, l);
 #endif
   while(l--){
+
+#ifdef USB_LOG
+    buf[bp][bi++] = *ptr;
+    if(bi>=1024){
+      bi=0;
+      write_log(buf[bp], BFSZ);
+      if(++bp>1){
+        bp=0;
+      }
+    }
+#endif
 #ifdef SWO_PRINT
     ITM_SendChar(*ptr++);
 #endif

@@ -76,6 +76,7 @@ typedef enum{
   break_wait_data_high_time = 3,
   break_wait_data_setlow    = 4,
   break_wait_data_keeplow   = 5,
+  break_wait_data_low_err
 }breakState_t;
 
 typedef enum{

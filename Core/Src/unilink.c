@@ -189,6 +189,18 @@ void unilink_handle(void){
 
 void unilink_handle_led(void){
   static uint32_t time=0;
+#if defined (Unilink_Passive_Mode) && defined (USB_LOG)
+  if(HAL_GetTick()>time){
+    time=HAL_GetTick();
+    togglePin(LED_GPIO_Port,LED_Pin);
+    if(systemStatus.driveStatus==drive_ready){
+      time+=500;                                // Drive mounted, slow blink
+    }
+    else{
+      time+=50;                                 // Else, fast blinking
+    }
+  }
+#elif !defined (Unilink_Passive_Mode)
   if(unilink.masterinit){
     if(unilink.status==unilink_idle){
       setPinLow(LED_GPIO_Port,LED_Pin);             // If in idle state and initialized, Led on
@@ -214,6 +226,7 @@ void unilink_handle_led(void){
       }
     }
   }
+#endif
 }
 
 
@@ -698,21 +711,6 @@ void unilinkWarmReset(void){
   unilink.timeout    = 0;
   unilink.rxCount    = 0;                               // Reset rx counter
   unilink.txCount    = 0;                               // Reset tx counter
-  unilink.disc=0;
-  for(uint8_t i=0;i<6;i++){                             // Update magazine data
-    if(cd_data[i].inserted){
-      if(unilink.disc==0){                              // Find first cd with files
-        unilink.disc=i+1;                               // Set current disc ands track
-        unilink.lastDisc=i+1;                            // reset last disc and track
-        unilink.track=1;
-        unilink.lastTrack=0;
-        unilink.min=0;                                  // reset playing time
-        unilink.sec=0;
-        unilink.millis=0;
-        break;
-      }
-    }
-  }
   unilink.play=0;
   unilink.powered_on=0;
   unilink.received  = 0;                                // Clear received flag
@@ -1046,6 +1044,7 @@ void unilink_clear_slave_break_queue(void){
  *                                 *
  ****************************************************************/
 void unilink_handle_slave_break(void){
+  static uint8_t brk_cnt;
   //static uint32_t last;
   if( !unilink.masterinit ||                        // Exit if in Tx mode or not initialized
       unilink.mode==mode_tx ||
@@ -1056,41 +1055,51 @@ void unilink_handle_slave_break(void){
     return;
   }
   switch(slaveBreak.break_state){
+  case break_wait_data_low_err:
+    brk_cnt=0;
+    slaveBreak.break_state=break_wait_data_low;
+    break;
     case break_wait_data_low:
       if(isDataLow()){
-        slaveBreak.dataTime=8;                      // Wait for DATA line 8mS in low state
-        slaveBreak.break_state++;
+        slaveBreak.dataTime=7;                      // Wait for DATA line 7mS in low state
+        slaveBreak.break_state=break_wait_data_low_time;
       }
       break;
 
     case break_wait_data_low_time:
       if(slaveBreak.dataTime){
         if(isDataHigh()){
-          slaveBreak.break_state=break_wait_data_low;     // If DATA goes high before the timer expires, reset state
+          slaveBreak.break_state=break_wait_data_low_err;     // If DATA goes high before the timer expires, reset state
         }
       }
       else{
-        slaveBreak.break_state++;
+        slaveBreak.break_state=break_wait_data_high;
       }
       break;
 
     case break_wait_data_high:
       if(isDataHigh()){                             // Wait for DATA high
         slaveBreak.dataTime=4;
-        slaveBreak.break_state++;
+        slaveBreak.break_state=break_wait_data_high_time;
       }
       break;
 
     case break_wait_data_high_time:
-      if(slaveBreak.dataTime){                      // Wait for DATA line 3mS in high state
+      if(slaveBreak.dataTime){                      // Wait for DATA line 4mS in high state
         if(isDataLow()){
-          slaveBreak.break_state=break_wait_data_low;     // If DATA goes low before the timer expires, reset to state 0
+          slaveBreak.break_state=break_wait_data_low_err;     // If DATA goes low before the timer expires, reset to state 0
         }
       }
       else{
-        unilink_data_mode(mode_output);             // Set DATA as GPIO output, low level
-        slaveBreak.dataTime=4;
-        slaveBreak.break_state++;
+        if(++brk_cnt > break_interval){
+          brk_cnt=0;
+          unilink_data_mode(mode_output);             // Set DATA as GPIO output, low level
+          slaveBreak.dataTime=3;
+          slaveBreak.break_state=break_wait_data_setlow;
+        }
+        else{
+          slaveBreak.break_state=break_wait_data_low;
+        }
       }
       break;
 
@@ -1331,10 +1340,18 @@ void unilink_callback(void){
       }
     }
     if(unilink.txCount<unilink.txSize){                   // check if bytes left
+#ifdef Unilink_use_npn_output
+      *(__IO uint8_t *)&unilink.SPI->Instance->DR = unilink.txData[unilink.txCount];   // output next byte (inverted)
+#else
       *(__IO uint8_t *)&unilink.SPI->Instance->DR = ~unilink.txData[unilink.txCount];   // output next byte (inverted)
+#endif
     }
     else{
+#ifdef Unilink_use_npn_output
+      *(__IO uint8_t *)&unilink.SPI->Instance->DR = 0;   // Clock extra bytes as 0s
+#else
       *(__IO uint8_t *)&unilink.SPI->Instance->DR = 0xFF;   // Clock extra bytes as 0s
+#endif
     }
     if(unilink.txCount < unilink.txSize){
       unilink.txCount++;

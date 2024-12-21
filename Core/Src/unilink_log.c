@@ -141,6 +141,8 @@ void unilinkLog(void){
           b_str=1;
         }
       }
+      default:
+        break;
     }
 #endif
     return;
