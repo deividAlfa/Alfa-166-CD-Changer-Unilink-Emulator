@@ -12,16 +12,118 @@
 #include "i2sAudio.h"
 #include <time.h>
 
+
+
 #ifdef AUDIO_SUPPORT
-DWORD clmt[32];
 DIR dir;         /* Directory object */
 FILINFO fil;    /* File information */
+DWORD clmt[32];
 
 extern system_t systemStatus;
 char fileList[MAXFILES][13];
 const char *filetypes[FILETYPES] = { "*.MP3", "*.WAV" };                                    // Files we are interested in
 const char *folders[FOLDERS] = { "/CD01", "/CD02", "/CD03", "/CD04", "/CD05", "/CD06" };    // Folder names
+#endif
 
+#if defined AUDIO_SUPPORT || defined USB_LOG
+void handleFS(void){
+
+  if(systemStatus.driveStatus==drive_inserted){           // Drive present
+    if( f_mount(systemStatus.fat, "", 1) != FR_OK ){
+        iprintf("SYSTEM: Failed to mount volume\r\n");
+        systemStatus.driveStatus=drive_error;           //Failure on mount
+    }
+    else{
+      if( f_chdir("/") != FR_OK ){
+         iprintf("SYSTEM: Failed to open root dir\r\n");
+         systemStatus.driveStatus=drive_error;           //Failure on mount
+      }
+      else{
+        iprintf("SYSTEM: Drive mounted\r\n");
+        systemStatus.driveStatus=drive_mounted;
+      }
+    }
+  }
+#ifdef AUDIO_SUPPORT
+  if(systemStatus.driveStatus==drive_mounted){
+    systemStatus.fileStatus   = file_none;
+    scanFS();
+    mag_data.cmd2=0;                                // Clear disc presence flags
+    for(uint8_t i=0;i<FOLDERS;i++){                       // Transfer file count to cd info (for unilink)
+
+      if(systemStatus.fileCount[i]){
+        systemStatus.driveStatus = drive_ready;     // If any folder with audio files is found, set drive ready
+        cd_data[i].tracks=systemStatus.fileCount[i];
+        cd_data[i].mins=99;
+        cd_data[i].secs=59;
+        cd_data[i].inserted=1;
+        switch(i){                                  // Set mag data disc presence
+          case 0:
+            mag_data.CD1_present=1;
+            break;
+          case 1:
+            mag_data.CD2_present=1;
+            break;
+          case 2:
+            mag_data.CD3_present=1;
+            break;
+          case 3:
+            mag_data.CD4_present=1;
+            break;
+          case 4:
+            mag_data.CD5_present=1;
+            break;
+          case 5:
+            mag_data.CD6_present=1;
+            break;
+        }
+      }
+      else{
+        cd_data[i].inserted=0;
+        cd_data[i].tracks=99;
+        cd_data[i].mins=0;
+        cd_data[i].secs=0;
+      }
+    }
+    unilink.mag_changed=1;                          // set flag to update
+
+    if(systemStatus.driveStatus != drive_ready){    // Something went wrong
+      iprintf("SYSTEM: No files found\r\n");
+      systemStatus.driveStatus=drive_error;         // No files
+      return;
+    }
+  }
+#endif
+
+  if((systemStatus.driveStatus==drive_error) || (systemStatus.driveStatus==drive_removed)){ // if drive removed or error
+    iprintf("SYSTEM: Removing mounting point\r\n");
+    f_mount(0, "", 1);                              // remove mount point
+    if(systemStatus.driveStatus==drive_removed){
+      systemStatus.driveStatus=drive_nodrive;
+    }
+    else{
+      systemStatus.driveStatus=drive_unmounted;
+    }
+
+#ifdef AUDIO_SUPPORT
+    AudioStop();
+    mag_data.cmd2=0;
+    mag_data.CD1_present=1;                               // Set only cd 1 ("aux" mode)
+    cd_data[0].tracks=1;
+    cd_data[0].mins=80;
+    cd_data[0].secs=0;
+    for(uint8_t i=1;i<6;i++){
+      cd_data[i].tracks=99;
+      cd_data[i].mins=0;
+      cd_data[i].secs=0;
+    }
+    unilink.mag_changed=1;                            // set flag to update
+#endif
+  }
+}
+#endif
+
+#ifdef AUDIO_SUPPORT
 void iprintfiles(void){
   iprintf("File list:\r\n");
   for(uint8_t t=0; t<systemStatus.fileCount[unilink.disc-1];t++){
@@ -84,97 +186,7 @@ void scanFS(void){
   }
 }
 
-void handleFS(void){
 
-  if(systemStatus.driveStatus==drive_inserted){           // Drive present
-    if( f_mount(systemStatus.fat, "", 1) != FR_OK ){
-        iprintf("SYSTEM: Failed to mount volume\r\n");
-        systemStatus.driveStatus=drive_error;           //Failure on mount
-    }
-    else{
-      if( f_opendir(&dir, "/") != FR_OK ){
-         iprintf("SYSTEM: Failed to open root dir\r\n");
-         systemStatus.driveStatus=drive_error;           //Failure on mount
-      }
-      else{
-        iprintf("SYSTEM: Drive mounted\r\n");
-        systemStatus.driveStatus=drive_mounted;
-      }
-    }
-  }
-  if(systemStatus.driveStatus==drive_mounted){
-    systemStatus.fileStatus   = file_none;
-    scanFS();
-    mag_data.cmd2=0;                                // Clear disc presence flags
-    for(uint8_t i=0;i<FOLDERS;i++){                       // Transfer file count to cd info (for unilink)
-
-      if(systemStatus.fileCount[i]){
-        systemStatus.driveStatus = drive_ready;     // If any folder with audio files is found, set drive ready
-        cd_data[i].tracks=systemStatus.fileCount[i];
-        cd_data[i].mins=99;
-        cd_data[i].secs=59;
-        cd_data[i].inserted=1;
-        switch(i){                                  // Set mag data disc presence
-          case 0:
-            mag_data.CD1_present=1;
-            break;
-          case 1:
-            mag_data.CD2_present=1;
-            break;
-          case 2:
-            mag_data.CD3_present=1;
-            break;
-          case 3:
-            mag_data.CD4_present=1;
-            break;
-          case 4:
-            mag_data.CD5_present=1;
-            break;
-          case 5:
-            mag_data.CD6_present=1;
-            break;
-        }
-      }
-      else{
-        cd_data[i].inserted=0;
-        cd_data[i].tracks=99;
-        cd_data[i].mins=0;
-        cd_data[i].secs=0;
-      }
-    }
-    unilink.mag_changed=1;                          // set flag to update
-
-    if(systemStatus.driveStatus != drive_ready){    // Something went wrong
-      iprintf("SYSTEM: No files found\r\n");
-      systemStatus.driveStatus=drive_error;         // No files
-      return;
-    }
-  }
-
-  if((systemStatus.driveStatus==drive_error) || (systemStatus.driveStatus==drive_removed)){ // if drive removed or error
-    iprintf("SYSTEM: Removing mounting point\r\n");
-    f_mount(0, "", 1);                              // remove mount point
-    if(systemStatus.driveStatus==drive_removed){
-      systemStatus.driveStatus=drive_nodrive;
-    }
-    else{
-      systemStatus.driveStatus=drive_unmounted;
-    }
-    AudioStop();
-
-    mag_data.cmd2=0;
-    mag_data.CD1_present=1;                               // Set only cd 1 ("aux" mode)
-    cd_data[0].tracks=1;
-    cd_data[0].mins=80;
-    cd_data[0].secs=0;
-    for(uint8_t i=1;i<6;i++){
-      cd_data[i].tracks=99;
-      cd_data[i].mins=0;
-      cd_data[i].secs=0;
-    }
-    unilink.mag_changed=1;                            // set flag to update
-  }
-}
 
 
 uint8_t openFile(void){

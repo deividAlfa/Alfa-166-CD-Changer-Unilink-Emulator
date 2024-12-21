@@ -9,6 +9,7 @@
 
 #ifdef USB_LOG
 #include "fatfs.h"
+#include "files.h"
 #include "i2sAudio.h"
 #include "usb_host.h"
 #endif

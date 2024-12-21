@@ -109,7 +109,7 @@ void MX_USB_HOST_Process(void)
 static void USBH_UserProcess  (USBH_HandleTypeDef *phost, uint8_t id)
 {
   /* USER CODE BEGIN CALL_BACK_1 */
-#ifdef AUDIO_SUPPORT
+#if defined AUDIO_SUPPORT || defined USB_LOG
   switch(id)
   {
   case HOST_USER_SELECT_CONFIGURATION:

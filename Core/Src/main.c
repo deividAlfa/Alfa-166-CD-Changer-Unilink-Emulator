@@ -26,9 +26,9 @@
 /* USER CODE BEGIN Includes */
 #include "unilink_log.h"
 #include "serial.h"
-#ifdef AUDIO_SUPPORT
+#include "files.h"
 #include "i2sAudio.h"
-#endif
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -144,7 +144,10 @@ int main(void)
 
   __HAL_DBGMCU_FREEZE_TIM10();
   __HAL_DBGMCU_FREEZE_TIM11();
+
+#if defined Unilink_Log_Enable && defined UART_PRINT
   initSerial(&huart1);
+#endif
 
 #ifdef Unilink_Log_Enable
   putString("System init...\r\n");
@@ -166,8 +169,10 @@ int main(void)
 
 
   while (1) {
-#ifdef AUDIO_SUPPORT
+#if defined AUDIO_SUPPORT || defined USB_LOG
 	  handleFS();
+#endif
+#ifdef AUDIO_SUPPORT
     handleAudio();
 #endif
 	  unilink_handle();

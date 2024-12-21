@@ -80,7 +80,7 @@ void unilink_handle(void){
   if(unilink.received){
     unilink.received=0;                               // do a parity check of received packet and proceed if OK
     if(unilink_checksum()){                           // If checksum ok...
-      #ifndef Unilink_Passive_Mode
+      #ifndef PASSIVE_MODE
       unilink_parse();
       #endif
     }
@@ -179,7 +179,7 @@ void unilink_handle(void){
   }
 #endif
 
-#ifndef Unilink_Passive_Mode
+#ifndef PASSIVE_MODE
   unilink_handle_slave_break();                     // Handle slave break events
 #endif
 
@@ -189,7 +189,7 @@ void unilink_handle(void){
 
 void unilink_handle_led(void){
   static uint32_t time=0;
-#if defined (Unilink_Passive_Mode) && defined (USB_LOG)
+#if defined (PASSIVE_MODE) && defined (USB_LOG)
   if(HAL_GetTick()>time){
     time=HAL_GetTick();
     togglePin(LED_GPIO_Port,LED_Pin);
@@ -200,7 +200,7 @@ void unilink_handle_led(void){
       time+=50;                                 // Else, fast blinking
     }
   }
-#elif !defined (Unilink_Passive_Mode)
+#elif !defined (PASSIVE_MODE)
   if(unilink.masterinit){
     if(unilink.status==unilink_idle){
       setPinLow(LED_GPIO_Port,LED_Pin);             // If in idle state and initialized, Led on

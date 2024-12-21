@@ -11,7 +11,7 @@
 #include "wavDecoder.h"
 #include "unilink.h"
 
-#if defined AUDIO_SUPPORT || defined Unilink_Passive_Mode
+#if defined AUDIO_SUPPORT || defined USB_LOG
 system_t systemStatus;
 #endif
 

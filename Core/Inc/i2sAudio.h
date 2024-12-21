@@ -10,7 +10,6 @@
 #include "main.h"
 #include "files.h"
 #include "FATFS.h"
-#include "spiritMP3Dec.h"
 
 typedef enum{
 	audio_idle = 0,					// Audio idle after boot

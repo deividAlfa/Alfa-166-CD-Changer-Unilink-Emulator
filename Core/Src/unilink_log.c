@@ -50,7 +50,7 @@ void unlinkLogTimestamp(void){
 void unilinkLog(void){
   static bool b_str;
   uint8_t size,count=0,i=0;
-  char str[64] = {0};    // No need to set to 0
+  char str[128];
   size=unilink.logSize;
   if(unilink.logTx){
     str[i++]='#';
@@ -58,14 +58,14 @@ void unilinkLog(void){
     unilink.logTx=0;
   }
   else if(unilink.logRx){
-#ifndef Unilink_Passive_Mode
+#ifndef PASSIVE_MODE
     str[i++]='<';
     str[i++]=' ';
 #endif
     unilink.logRx=0;
   }
   else{
-#ifdef Unilink_Passive_Mode                                  // Detect slave breaks in Unilink_Passive_Mode mode
+#ifdef PASSIVE_MODE                                  // Detect slave breaks in PASSIVE_MODE mode
     static breakState_t state;
     switch(state){
       case break_wait_data_low:
@@ -194,12 +194,13 @@ void unilinkLog(void){
     }
 #endif
   }
-#ifdef Unilink_Log_Detailed
-  str[i]=0;
-#else
-  str[i]='\r\n';
+#ifndef Unilink_Log_Detailed
+  str[i++]='\r';
+  str[i++]='\n';
 #endif
-    putString(str);
+
+  str[i]=0;
+  putString(str);
 
   // Print info
 #ifdef Unilink_Log_Detailed                                   // Add separator for the comments
