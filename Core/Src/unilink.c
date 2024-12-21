@@ -1045,56 +1045,62 @@ void unilink_clear_slave_break_queue(void){
  ****************************************************************/
 void unilink_handle_slave_break(void){
   static uint8_t brk_cnt;
-  //static uint32_t last;
-  if( !unilink.masterinit ||                        // Exit if in Tx mode or not initialized
-      unilink.mode==mode_tx ||
-      slaveBreak.msg_state==break_msg_sending ||           // Exit if busy
-      slaveBreak.msg_state==break_msg_pendingTx
-      /*|| HAL_GetTick()<last*/ ){                  // XXX time limit between breaks required?
+  if( !unilink.masterinit ||                          // Exit if not initialized,
+      unilink.mode==mode_tx ||                        // transmitting,
+      (unilink.mode==mode_rx && unilink.rxCount) ){   // or reception going on
 
     return;
   }
   switch(slaveBreak.break_state){
-  case break_wait_data_low_err:
-    brk_cnt=0;
-    slaveBreak.break_state=break_wait_data_low;
-    break;
+
+    case break_wait_data_low_err:
+      brk_cnt=0;
+      slaveBreak.break_state=break_wait_data_low;
+      break;
+
     case break_wait_data_low:
       if(isDataLow()){
-        slaveBreak.dataTime=7;                      // Wait for DATA line 7mS in low state
+        slaveBreak.dataTime=7;                                // Wait for DATA low for 7mS
         slaveBreak.break_state=break_wait_data_low_time;
       }
       break;
 
     case break_wait_data_low_time:
-      if(slaveBreak.dataTime){
-        if(isDataHigh()){
-          slaveBreak.break_state=break_wait_data_low_err;     // If DATA goes high before the timer expires, reset state
+      if(slaveBreak.dataTime){                                // Timer not expired
+        if(isDataHigh()){                                     // If DATA goes high,
+          slaveBreak.break_state=break_wait_data_low_err;     // reset state
         }
       }
-      else{
+      else{                                                   // Timeout expired
+        slaveBreak.dataTime=3;                                // 3ms timeout while waiting for data HIGH
         slaveBreak.break_state=break_wait_data_high;
       }
       break;
 
     case break_wait_data_high:
-      if(isDataHigh()){                             // Wait for DATA high
-        slaveBreak.dataTime=4;
-        slaveBreak.break_state=break_wait_data_high_time;
+      if(slaveBreak.dataTime){                                // Timeout not expired
+        if(isDataHigh()){                                     // If for DATA high
+          slaveBreak.dataTime=3;                              // Wait for data high for 3ms
+          slaveBreak.break_state=break_wait_data_high_time;
+        }
       }
+      else{                                                   // Timeout
+        slaveBreak.break_state=break_wait_data_low_err;       // DATA didn't go high within time, reset state
+      }
+
       break;
 
     case break_wait_data_high_time:
-      if(slaveBreak.dataTime){                      // Wait for DATA line 4mS in high state
-        if(isDataLow()){
-          slaveBreak.break_state=break_wait_data_low_err;     // If DATA goes low before the timer expires, reset to state 0
+      if(slaveBreak.dataTime){                                // Timeout not expired
+        if(isDataLow()){                                      // If data goes low,
+          slaveBreak.break_state=break_wait_data_low_err;     // reset to state
         }
       }
-      else{
+      else{                                                   // Timeout, start break
         if(++brk_cnt > break_interval){
           brk_cnt=0;
-          unilink_data_mode(mode_output);             // Set DATA as GPIO output, low level
-          slaveBreak.dataTime=3;
+          unilink_data_mode(mode_output);                     // Pull data low
+          slaveBreak.dataTime=3;                              // Keep data low for 3ms
           slaveBreak.break_state=break_wait_data_setlow;
         }
         else{
@@ -1104,11 +1110,10 @@ void unilink_handle_slave_break(void){
       break;
 
     case break_wait_data_setlow:
-      if(!slaveBreak.dataTime){                     // Wait 3mS
-        unilink_data_mode(mode_SPI);                // Set DATA as SPI
-        slaveBreak.msg_state=break_msg_pending;            // Break condition executed, now wait for slave poll command from master
-        slaveBreak.break_state=break_wait_data_low;       // Reset status
-        //last = HAL_GetTick()+500;
+      if(!slaveBreak.dataTime){                               // Timeout expired
+        unilink_data_mode(mode_SPI);                          // Release data, set to SPI
+        slaveBreak.msg_state=break_msg_pending;               // Break condition executed, now wait for slave poll command from master
+        slaveBreak.break_state=break_wait_data_low;           // Reset status
       }
       break;
 
