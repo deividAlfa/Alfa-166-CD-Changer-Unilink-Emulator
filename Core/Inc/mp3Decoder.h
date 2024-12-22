@@ -21,7 +21,7 @@ typedef struct{
 
 // Optimal size of output buffer is a multiple of MP3 granule size (576 samples)
 #define MP3_GRANULE_SIZE      576
-#define MP3Samples            MP3_GRANULE_SIZE*2        // 4 frames provide 52mS audio buffer (44100Hz)
+#define MP3Samples            MP3_GRANULE_SIZE*4        // 4 frames provide 52mS audio buffer (44100Hz)
 #define MP3_PCMSamples        MP3Samples*2              // *2 (Stereo)
 
 
