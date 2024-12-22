@@ -74,6 +74,21 @@ void unilink_init(SPI_HandleTypeDef* SPI, TIM_HandleTypeDef* tim){
 }
 
 void unilink_handle(void){
+  if(unilink.timeout>10000){                      // 30 second without any activity
+    putString("No activity timeout, shutting down...\r\n");
+#ifdef USB_LOG
+    flush_log();                                  // flush log
+    removeDrive();
+#endif
+    setPinLow(PWR_ON_GPIO_Port, PWR_ON_Pin);      // Turn off
+    static uint32_t time=0;
+    while(1){
+      if(HAL_GetTick()>time){
+        time=HAL_GetTick()+50;
+        togglePin(LED_GPIO_Port,LED_Pin);
+      }
+    }
+  }
   #ifdef Unilink_Log_Enable
   unilinkLog();
   #endif

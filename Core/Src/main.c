@@ -172,6 +172,9 @@ int main(void)
 #if defined AUDIO_SUPPORT || defined USB_LOG
 	  handleFS();
 #endif
+#if defined USB_LOG
+    handle_log();
+#endif
 #ifdef AUDIO_SUPPORT
     handleAudio();
 #endif
