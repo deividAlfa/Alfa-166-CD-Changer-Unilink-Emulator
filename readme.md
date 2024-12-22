@@ -51,10 +51,17 @@ Check "unilink.h" and "unilink.c".
 <a id="debugging"></a>
 ## Debugging
 
-The firmware has different levels of debugging the Unilink data, see `unilink_log.h`.<br>
-  - "Unilink_Log_Enable" will display the unilink frames in a readable format. It has two additional modifiers:
+The firmware has different levels of debugging the Unilink data, see `config.h`.<br>
+
+  - `SWO_PRINT`, `UART_PRINT` and `USB_LOG` switches will enable each logging output.<br>
+    - `UART_PRINT` Enables serial port logging to PA9 pin, 1Mbit baudrate.
+    - `SWO_PRINT` Enables SWO pin logging. Connect the ST-Link to the STM32 (SWC=PA14 SWD=PA13 SWO=PB3), open Printf SWO viever in ST-Link utility, set core clock to 96000000Hz.
+    - `USB_LOG` Enables USB logging, creating a file `log.txt`.
+
+
+Additionally, the log can be written into a file `log.txt` in the USB drive.<br>
   - "Unilink_Log_Detailed" will split the data frames within brackets, so the data and checksums can be read easier.
-  - "Unilink_Passive_Mode" will disable the slave interface and set the device in sniffer mode.<br>
+  - "PASSIVE_MODE" will disable the slave interface and set the device in sniffer mode.<br>
   In this mode it can output the dialog between the ICS and the CD changer.
   
  Example log outputs:<br>
@@ -81,10 +88,6 @@ It uses VBA to parse the data, so you need to enable macros. The function is cal
     01 MASTER REQUEST - ANYONE?      18 10 01 02 2B 00
     8C DEVICE INFO                   10 30 8C 11 DD 14 A8 17 60 10 00
 
-
-The debugging data is sent using the serial port, and also through the SWO pin.<br>
-You can read the SWO data at any time by connecting a ST-Link to the STM32, then open Printf SWO viever in ST-Link utility.<br>
-Set Core clock to 96MHz (96000000).<br>
  
 <a id="connections"></a>
 ## Connections
@@ -99,7 +102,8 @@ The ICS connection is as follows:<br>
     - Right input: `C3-20`
     
   - Unilink interface:
-    - Power: `C2-8`, outputs 12V when switched on. You'll need a 5V voltage regulator for the STM32.
+    - Power: `C2-8`, permanent 12V. You'll need a 5V voltage regulator for the STM32 board.
+    - ON: `C2-7`, pulses to wake up the slave. This needs to be connected to a mosfet so powers our device on. (TODO: Complete this.)
     - Ground: `C2-9`, it's  missing in the picture but fully correct. Don't use this ground for audio.
     - Data: `C2-10`, connect to STM32 PA6.
     - Clk: `C2-11`, connect to STM32 PA5.
