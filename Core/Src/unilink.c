@@ -163,7 +163,7 @@ void unilink_handle(void){
       }
     }
 #ifdef AUDIO_SUPPORT
-    if(systemStatus.audioStatus==audio_play || systemStatus.audioStatus==audio_pause)          // Audio playing or paused
+    if(systemStatus.driveStatus==drive_ready && (systemStatus.audioStatus==audio_play || systemStatus.audioStatus==audio_pause))          // Audio playing or paused
         AudioStop();                                                                            // Stop audio
 #endif
     unilink_reset_playback_time();
@@ -172,23 +172,25 @@ void unilink_handle(void){
     unilink_add_slave_break(cmd_status);                    // Add status msg
   }
 #ifdef AUDIO_SUPPORT
-  if(unilink.trackChanged){                                                                   // Track changed
-    if(systemStatus.audioStatus==audio_play || systemStatus.audioStatus==audio_pause) {       // Audio playing or paused
-      AudioStop();                                                                            // Stop audio
-    }
-    unilink_reset_playback_time();
-    AudioStart();                                                                             // Start audio
-    unilink.trackChanged = 0;                                                                 // Clear flag
-  }
-  else{
-    if(unilink.status==unilink_playing){
-      if(systemStatus.audioStatus!=audio_play){     // Unilink playing, audio paused or stopped
-        AudioStart();
+  if(systemStatus.driveStatus==drive_ready){
+    if(unilink.trackChanged){                                                                   // Track changed
+      if(systemStatus.audioStatus==audio_play || systemStatus.audioStatus==audio_pause) {       // Audio playing or paused
+        AudioStop();                                                                            // Stop audio
       }
+      unilink_reset_playback_time();
+      AudioStart();                                                                             // Start audio
+      unilink.trackChanged = 0;                                                                 // Clear flag
     }
     else{
-      if(systemStatus.audioStatus==audio_play){     // Unilink stopped, audio playing
-        AudioPause();
+      if(unilink.status==unilink_playing){
+        if(systemStatus.audioStatus!=audio_play){     // Unilink playing, audio paused or stopped
+          AudioStart();
+        }
+      }
+      else{
+        if(systemStatus.audioStatus==audio_play){     // Unilink stopped, audio playing
+          AudioPause();
+        }
       }
     }
   }
@@ -221,7 +223,7 @@ void unilink_handle_led(void){
       setPinLow(LED_GPIO_Port,LED_Pin);             // If in idle state and initialized, Led on
     }
     else if(unilink.status==unilink_playing){
-      if(HAL_GetTick()-time>50){
+      if(HAL_GetTick()-time>100){
         time=HAL_GetTick();
         togglePin(LED_GPIO_Port,LED_Pin);           // If in play state, quick led blinking
       }
@@ -523,18 +525,18 @@ void unilink_myid_cmd(void){
       unilink.lastTrack = unilink.track;
       unilink.track = track;
       unilink.trackChanged = 1;
+      unilink_clear_slave_break_queue();
+      /*
+      unilink_set_status(unilink_changing);
       unilink_add_slave_break(cmd_status);                  // send status changing (updates to changed)
+      unilink_set_status(unilink_changed);
+      unilink_add_slave_break(cmd_status);                  // send status changing (updates to changed)
+      */
       if(unilink.disc != disc){             // check for disc change
         //unilink.play=0;
-        unilink_clear_slave_break_queue();
         unilink.lastDisc = unilink.disc;
         unilink.disc = disc;
         //unilink_add_slave_break(cmd_discinfo);
-        unilink_set_status(unilink_changed);
-        unilink_add_slave_break(cmd_status);
-        unilink_add_slave_break(cmd_magazine);
-        //unilink_set_status(unilink_changed);
-        //unilink_add_slave_break(cmd_status);
         /*
         unilink_set_status(unilink_changed);
         unilink_add_slave_break(cmd_status);
@@ -554,18 +556,22 @@ void unilink_myid_cmd(void){
             mag_data.status=mag_slot_empty;
             unilink_add_slave_break(cmd_cartridgeinfo);              // Add empty slot msg
 
-            for(uint8_t i=0;i<6;i++){                // Find next valid disc
-              if(cd_data[unilink.disc-1].inserted){
-                break;
-              }
-              if(++unilink.disc>6){
-                unilink.disc=1;
+            if(cd_data[unilink.lastDisc-1].inserted){               // Return to previous disc if possible
+              unilink.disc=unilink.lastDisc;
+            }
+            else{                                                   // Else,
+              for(uint8_t i=0;i<6;i++){                             // Find first valid disc
+                if(cd_data[unilink.disc-1].inserted){
+                  unilink.disc = i+1;
+                  break;
+                }
               }
             }
             if(!cd_data[unilink.disc-1].inserted){    // No discs on system
               unilink.trackChanged = 0;             // Abort track change
               unilink_set_status(unilink_idle);              // Idle state
-              //unilink_add_slave_break(cmd_status);          //
+              mag_data.cmd2=0;
+              unilink.play=0;
             }
             else{
               unilink.lastDisc=unilink.disc;        // Update disk
@@ -578,7 +584,6 @@ void unilink_myid_cmd(void){
           if(unilink.status != unilink_idle){
             unilink_add_slave_break(cmd_discinfo);
             unilink_add_slave_break(cmd_cfgchange);
-            unilink_add_slave_break(cmd_status);
             unilink_add_slave_break(cmd_dspdiscchange);
             unilink_add_slave_break(cmd_intro_end);
             unilink_set_status(unilink_playing);
@@ -586,17 +591,22 @@ void unilink_myid_cmd(void){
           }
         }
         else{
-          for(uint8_t i=0;i<6;i++){                // Find next valid disc
+          for(uint8_t i=0;i<6;i++){                // Clear next discs
             cd_data[unilink.disc-1].inserted=0;
           }
-           mag_data.status=mag_removed;
-           unilink_add_slave_break(cmd_cartridgeinfo);                                // FIXME: Properly find how to deal with this
-           unilink_set_status(unilink_idle);                // Idle state
-           unilink_add_slave_break(cmd_status);                //
-           mag_data.cmd2=0;
-           unilink_add_slave_break(cmd_magazine);
-           unilink.play=0;
+          mag_data.cmd2=0;
+          mag_data.status=mag_removed;
+          unilink_add_slave_break(cmd_cartridgeinfo);                                // FIXME: Find how to deal with this properly
+          mag_data.cmd2=0;
+          unilink_add_slave_break(cmd_magazine);
+          unilink_set_status(unilink_idle);                // Idle state
+          unilink_add_slave_break(cmd_status);                //
+          unilink.play=0;
         }
+      }
+      else{
+        unilink_set_status(unilink_playing);
+        unilink_add_slave_break(cmd_status);
       }
       break;
     }
@@ -839,25 +849,15 @@ void unilink_spi_mode(unilink_SPImode_t mode){
   }
 
   if(mode == mode_rx){
-    /*
-    unilink.SPI->Init.CLKPolarity = SPI_POLARITY_LOW;
-    unilink.SPI->Init.CLKPhase = SPI_PHASE_2EDGE;
-    */
     unilink.mode = mode_rx;
     SPI_1LINE_RX(unilink.SPI);
     __HAL_SPI_ENABLE_IT(unilink.SPI, (SPI_IT_RXNE | SPI_IT_ERR));
   }
   else{
-    /*
-    unilink.SPI->Init.CLKPolarity = SPI_POLARITY_LOW;
-    unilink.SPI->Init.CLKPhase = SPI_PHASE_2EDGE;
-    */
     unilink.mode = mode_tx;                                 // Enable Tx mode
     SPI_1LINE_TX(unilink.SPI);
     __HAL_SPI_ENABLE_IT(unilink.SPI, (SPI_IT_TXE | SPI_IT_ERR));
   }
-
-  //MODIFY_REG(unilink.SPI->Instance->CR1, SPI_CR1_CPHA | SPI_CR1_CPOL, unilink.SPI->Init.CLKPolarity | unilink.SPI->Init.CLKPhase);
   __HAL_SPI_ENABLE(unilink.SPI);
 }
 
