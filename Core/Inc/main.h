@@ -106,6 +106,8 @@ void DebugPulse(uint8_t pulses);
 #define BCK_GPIO_Port GPIOB
 #define DOUT_Pin GPIO_PIN_15
 #define DOUT_GPIO_Port GPIOB
+#define PWR_ON_Pin GPIO_PIN_9
+#define PWR_ON_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 #define LED_Pin_Pos   __get_GPIO_Pos(LED_Pin)
