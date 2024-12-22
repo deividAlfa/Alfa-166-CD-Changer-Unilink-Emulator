@@ -53,15 +53,13 @@ Check "unilink.h" and "unilink.c".
 
 The firmware has different levels of debugging the Unilink data, see `config.h`.<br>
 
-  - `SWO_PRINT`, `UART_PRINT` and `USB_LOG` switches will enable each logging output.<br>
-    - `UART_PRINT` Enables serial port logging to PA9 pin, 1Mbit baudrate.
-    - `SWO_PRINT` Enables SWO pin logging. Connect the ST-Link to the STM32 (SWC=PA14 SWD=PA13 SWO=PB3), open Printf SWO viever in ST-Link utility, set core clock to 96000000Hz.
-    - `USB_LOG` Enables USB logging, creating a file `log.txt`.
-
-
-Additionally, the log can be written into a file `log.txt` in the USB drive.<br>
-  - "Unilink_Log_Detailed" will split the data frames within brackets, so the data and checksums can be read easier.
-  - "PASSIVE_MODE" will disable the slave interface and set the device in sniffer mode.<br>
+  - SWO_PRINT, UART_PRINT and USB_LOG switches will enable each logging output.<br>
+    - UART_PRINT Enables serial port logging to PA9 pin, 1Mbit baudrate.
+    - SWO_PRINT Enables SWO pin logging. Connect the ST-Link to the STM32 (SWC=PA14 SWD=PA13 SWO=PB3).
+      Open Printf SWO viever in ST-Link utility, set core clock to 96000000Hz.
+    - USB_LOG** Enables USB logging, creating a file `log.txt`.
+  - Unilink_Log_Detailed Will split the data frames within brackets, so the data and checksums can be read easier.
+  - PASSIVE_MODE will disable the slave interface and set the device in sniffer mode.<br>
   In this mode it can output the dialog between the ICS and the CD changer.
   
  Example log outputs:<br>
@@ -103,7 +101,7 @@ The ICS connection is as follows:<br>
     
   - Unilink interface:
     - Power: `C2-8`, permanent 12V. You'll need a 5V voltage regulator for the STM32 board.
-    - ON: `C2-7`, pulses to wake up the slave. This needs to be connected to a mosfet so powers our device on. (TODO: Complete this.)
+    - BUS_ON: `C2-7`, makes some pulses at power-on to wake up the slave. This needs to be connected to a mosfet to power our device on. (TODO: Complete this.)
     - Ground: `C2-9`, it's  missing in the picture but fully correct. Don't use this ground for audio.
     - Data: `C2-10`, connect to STM32 PA6.
     - Clk: `C2-11`, connect to STM32 PA5.
