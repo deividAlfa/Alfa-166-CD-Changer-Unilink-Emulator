@@ -42,6 +42,6 @@ void scanFS(void);
 void sortFS(void);
 uint8_t openFile(void);
 void closeFile(void);
-int32_t freespace(void);
+void removeDrive(void);
 #endif /* INC_FILES_H_ */
 

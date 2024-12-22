@@ -26,15 +26,28 @@ const char *folders[FOLDERS] = { "/CD01", "/CD02", "/CD03", "/CD04", "/CD05", "/
 #endif
 
 #if defined AUDIO_SUPPORT || defined USB_LOG
-void handleFS(void){
 
+void removeDrive(void){
+  f_mount(0, "", 1);
+}
+
+void handleFS(void){
+  FRESULT res;
   if(systemStatus.driveStatus==drive_inserted){           // Drive present
-    if( f_mount(systemStatus.fat, "", 1) != FR_OK ){
+    for(uint8_t i=0;i<10;i++){
+      res = f_mount(systemStatus.fat, "", 1);
+      if(res==FR_OK) break;
+    }
+    if(res!=FR_OK){
         iprintf("SYSTEM: Failed to mount volume\r\n");
         systemStatus.driveStatus=drive_error;           //Failure on mount
     }
     else{
-      if( f_chdir("/") != FR_OK ){
+      for(uint8_t i=0;i<10;i++){
+        res = f_chdir("/");
+        if(res==FR_OK) break;
+      }
+      if(res!=FR_OK){
          iprintf("SYSTEM: Failed to open root dir\r\n");
          systemStatus.driveStatus=drive_error;           //Failure on mount
       }
@@ -190,6 +203,11 @@ void scanFS(void){
 
 
 uint8_t openFile(void){
+  FRESULT res;
+
+  if(systemStatus.driveStatus != drive_ready){
+    return FR_NOT_READY;
+  }
   systemStatus.lastFile[0] = 0;
 
   if(fileList[unilink.track-1][0]){                             // Detect file extension
@@ -218,18 +236,32 @@ uint8_t openFile(void){
       }
     }
   }
-  if(f_chdir(folders[unilink.disc-1])!=FR_OK){               // Change dir
+  for(uint8_t i=0;i<10;i++){
+    res = f_chdir(folders[unilink.disc-1]);
+    if(res==FR_OK) break;
+  }
+  if(res!=FR_OK){               // Change dir
     iprintf("Error opening folder \"%s\"\r\n",folders[unilink.disc-1]);
     return FR_DISK_ERR;
   }
-  if( f_open(systemStatus.file, (char *)fileList[unilink.track-1], FA_READ) != FR_OK){        // Open file
+
+  for(uint8_t i=0;i<10;i++){
+    res = f_open(systemStatus.file, (char *)fileList[unilink.track-1], FA_READ);
+    if(res==FR_OK) break;
+  }
+  if(res!=FR_OK){        // Open file
     iprintf("SYSTEM: Error opening file\r\n");
     systemStatus.driveStatus=drive_error;                                     // No files
     return FR_DISK_ERR;
   }
   clmt[0] = 32;                                                               // Set table size
   systemStatus.file->cltbl = clmt;                                                      // Enable fast seek feature (cltbl != NULL)
-  if( f_lseek(systemStatus.file, CREATE_LINKMAP) != FR_OK ){                          // Create CLMT
+
+  for(uint8_t i=0;i<10;i++){
+    res = f_lseek(systemStatus.file, CREATE_LINKMAP);
+    if(res==FR_OK) break;
+  }
+  if( res != FR_OK ){                          // Create CLMT
     f_close( systemStatus.file );
     iprintf("SYSTEM: FatFS Seek error\r\n");
     return FR_DISK_ERR;
@@ -254,6 +286,7 @@ uint8_t openFile(void){
 void closeFile(void){
   f_close(systemStatus.file);
 }
+
 
 /*
 uint8_t restorelast(void){
