@@ -356,9 +356,23 @@ void unilinkLog(void){
       break;
 
     case cmd_cfgchange:
-      putString("CFG CHANGE\r\n");
+    {
+      putString("CFG CHANGE -");
+      if(unilink.logData[d1] & 0x80){
+        putString(" Mute:");
+        putString(unilink.logData[d1] & 0x40 ? "ON" : "OFF");
+      }
+      if(unilink.logData[d1] & 0x20){
+        putString(" Loudness:");
+        putString(unilink.logData[d1] & 0x10 ? "ON" : "OFF");
+      }
+      if(unilink.logData[d2] & 0x80){
+        putString(" Phone mute:");
+        putString(unilink.logData[d2] & 0x40 ? "ON" : "OFF");
+      }
+      putString("\r\n");
       break;
-
+    }
     case cmd_switch:
       putString("Switch to ?\r\n");
       break;
@@ -434,13 +448,16 @@ void unilinkLog(void){
       if(unilink.logData[cmd2]!=0)
         putString("??? ");
 
-      putString("Track ");
-      s[0]=unilink.logData[d1]&0xF0 ? '0' : '0'+(unilink.logData[d1]>>4);
+      putString("Disc:");
+      s[0]='0'+(unilink.logData[d4]>>4);
+      putString(s);
+      putString(" Track:");
+      s[0]=(unilink.logData[d1]>>4) == 0xF ? '0' : '0'+(unilink.logData[d1]>>4);
       s[1]='0'+(unilink.logData[d1]&0xF);
       s[2]=' ';
       putString(s);
 
-      s[0]=unilink.logData[d2]&0xF0 ? '0' : '0'+(unilink.logData[d2]>>4);
+      s[0]=(unilink.logData[d2]>>4) == 0xF ? '0' : '0'+(unilink.logData[d2]>>4);
       s[1]='0'+(unilink.logData[d2]&0xF);
       s[2]=':';
       putString(s);
