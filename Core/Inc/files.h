@@ -12,7 +12,7 @@
 
 #define MAXFILES  100
 #define FILETYPES 2
-#define FOLDERS   MAXDISCS
+#define FOLDERS   _DISCS_
 
 typedef enum{
   drive_nodrive = 0,      // No drive on system

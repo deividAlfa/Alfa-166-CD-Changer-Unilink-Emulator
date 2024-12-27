@@ -7,11 +7,12 @@
 
 
 #include "files.h"
+#include <time.h>
+#if defined AUDIO_SUPPORT || defined USB_LOG
 #include "fatfs.h"
 #include "spiritMP3Dec.h"
 #include "i2sAudio.h"
-#include <time.h>
-
+#endif
 
 
 #ifdef AUDIO_SUPPORT
@@ -103,6 +104,10 @@ void handleFS(void){
     if(systemStatus.driveStatus != drive_ready){    // Something went wrong
       iprintf("SYSTEM: No files found\r\n");
       systemStatus.driveStatus=drive_error;         // No files
+      //unilink_clear_slave_break_queue();
+      //mag_data.status==mag_removed;                       //FIXME: Untested
+      //unilink_add_slave_break(cmd_cartridgeinfo);
+      //unilink.status=unilink_ejecting;
       return;
     }
   }
@@ -289,7 +294,7 @@ void closeFile(void){
 
 
 /*
-uint8_t restorelast(void){
+uint8_t restorelast(void){                      // not needed, the ICS remembers disc and track
   #define SZ_TBL  8
   FRESULT res;
   DIR dp;

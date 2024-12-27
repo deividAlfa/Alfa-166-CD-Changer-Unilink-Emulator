@@ -9,7 +9,10 @@
 #define INC_I2SAUDIO_H_
 #include "main.h"
 #include "files.h"
+
+#if defined AUDIO_SUPPORT || defined USB_LOG
 #include "FATFS.h"
+#endif
 
 typedef enum{
 	audio_idle = 0,					// Audio idle after boot
@@ -38,7 +41,7 @@ typedef struct{
   uint8_t         unilink_change;     // Flag to indicate unilink track/disc change was received
   uint8_t         currentFolder;      // Current folder number
   uint8_t         currentFile;        // Current file number
-
+#if defined AUDIO_SUPPORT || defined USB_LOG
 	driveStatus_t	 	driveStatus; 		    // 0 = no drive, 1=mounted, 2=scanned
 	fileStatus_t		fileStatus; 		    // 0 = No file, 1 = File opened, 2 = File end reached
 	filetype_t      filetype;           // File status
@@ -61,19 +64,23 @@ typedef struct{
 	audioStatus_t		audioBits;			    // 8Bits, 16Bits
 	audioStatus_t		audioChannels;		  // Mono, Stereo
 	audioStatus_t		audioRate;			    // 16KHz, 32KHz, 48KHz
+#endif
 	audioStatus_t		audioStatus;		    // Idle, Playing, Stopped(after playing)
 }system_t;
 
 extern system_t systemStatus;
 
+#if defined AUDIO_SUPPORT
 void initAudio(I2S_HandleTypeDef *hi2s);
+void padBuffer(int16_t* dest, int16_t data, uint16_t count);
+void handleBuffer(uint16_t offset);
 void handleAudio(void);
 void AudioStop(void);
 void AudioStart(void);
 void AudioNext(void);
 void AudioPause(void);
-void padBuffer(int16_t* dest, int16_t data, uint16_t count);
-void handleBuffer(uint16_t offset);
+#endif
+
 
 
 #endif /* INC_PWMAUDIO_H_ */

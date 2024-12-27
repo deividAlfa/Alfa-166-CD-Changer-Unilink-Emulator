@@ -535,11 +535,9 @@ void unilinkLog(void){
       putString("Track:");
       s[0]='0'+(unilink.logData[d1]>>4);
       s[1]='0'+(unilink.logData[d1]&0xF);
-      /*
-      s[2]='\r\n';            //XXX: removed for test
-      */
+      s[2]='\r';
+      s[2]='\n';
       putString(s);
-      putString("       ##########\r\n");            //XXX: Added for test
       break;
     }
     case cmd_source:

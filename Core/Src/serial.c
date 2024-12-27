@@ -102,19 +102,19 @@ int _write(int32_t file, uint8_t *ptr, int32_t len){
   return len;
 }
 
-void initSerial(UART_HandleTypeDef* huart){
 #ifdef UART_PRINT
+void initSerial(UART_HandleTypeDef* huart){
   uart=huart;
   uart->Init.BaudRate = 1000000;
   HAL_UART_Init(uart);
   uart_init=1;
-#endif
 }
+#endif
 
 void putString(const char *str){
   if(*str){                                                 // If empty string, return
     uint32_t l = strlen(str);
-    _write(0, (uint8_t*)str, l);                                                        // XXX removed printf so it redirects to _write and SWO
+    _write(0, (uint8_t*)str, l);
   }
 }
 

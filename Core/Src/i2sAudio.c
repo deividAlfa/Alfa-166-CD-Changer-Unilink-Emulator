@@ -5,13 +5,13 @@
  *      Author: David
  */
 #include "i2sAudio.h"
-#include "fatfs.h"
 #include "files.h"
 #include "mp3Decoder.h"
 #include "wavDecoder.h"
 #include "unilink.h"
 
 #if defined AUDIO_SUPPORT || defined USB_LOG
+#include "fatfs.h"
 system_t systemStatus;
 #endif
 
@@ -63,10 +63,11 @@ void handleAudio(void){
 		*/
 	}
 }
-
+#endif
 
 
 void AudioStart(void){
+#ifdef AUDIO_SUPPORT
   if(systemStatus.driveStatus!=drive_ready)
     return;
 
@@ -127,11 +128,12 @@ void AudioStart(void){
     HAL_I2S_DMAResume(i2sHandle);
     iprintf("AUDIO: Playback resumed\r\n\r\n");
   }
+#endif
 }
 
 
 void AudioStop(void){
-
+#ifdef AUDIO_SUPPORT
   systemStatus.fileStatus = file_end;
 
   if(systemStatus.audioStatus==audio_play || systemStatus.audioStatus==audio_pause){
@@ -150,10 +152,12 @@ void AudioStop(void){
     systemStatus.PCMbuffer = NULL;
   }
   closeFile();
+#endif
 	iprintf("AUDIO: Playback stopped\r\n\r\n");
 }
 
 void AudioNext(void){
+#ifdef AUDIO_SUPPORT
   AudioStop();
   unilink.lastTrack = unilink.track;
   if(++unilink.track >= cd_data[unilink.disc-1].tracks){
@@ -161,15 +165,19 @@ void AudioNext(void){
   }
   unilink_reset_playback_time();
   AudioStart();
+#endif
 }
 void AudioPause(void){
+#ifdef AUDIO_SUPPORT
   if(systemStatus.audioStatus==audio_play){
     HAL_I2S_DMAPause(i2sHandle);
     systemStatus.audioStatus = audio_pause;                // Playback paused
     iprintf("AUDIO: Playback paused\r\n\r\n");
   }
+#endif
 }
 
+#ifdef AUDIO_SUPPORT
 void padBuffer(int16_t* dest, int16_t data, uint16_t count){
   uint32_t val = data;
   HAL_DMA_Start_IT(&hdma_memtomem_dma2_stream0, (uint32_t)&val, (uint32_t)dest, count);

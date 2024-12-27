@@ -13,10 +13,12 @@
  *      Author: David
  */
 #include "i2sAudio.h"
-#include "fatfs.h"
 #include "wavDecoder.h"
 #include <malloc.h>
 
+#if defined AUDIO_SUPPORT
+
+#include "fatfs.h"
 extern system_t systemStatus;
 
 
@@ -153,3 +155,4 @@ uint32_t wavFillBuffer(int16_t* dest, uint16_t samples){
   }
   return count/2; // count is bytes, samples are 16 bit
 }
+#endif

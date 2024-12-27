@@ -141,16 +141,6 @@ typedef enum{
   cmd_unknown       = 0xFF,
 }unilinkCmd_t;
 
-typedef enum{
-  disc1_size        = 12,
-  disc2_size        = 24,
-  disc3_size        = 48,
-  disc4_size        = 64,
-  disc5_size        = 72,
-  disc6_size        = 96,
-}discSize_t;
-
-
 typedef enum {
   addr_master        = 0x10,
   addr_broadcast     = 0x18,
@@ -163,6 +153,7 @@ typedef enum {
 
 
 typedef struct {
+  volatile bool             system_off;       // Stores turn off flag after very long timeout, assuming the car is off
   volatile bool             logRx;            // Indicates rx buffer ready for logging
   volatile bool             logTx;            // Indicates tx buffer ready for logging
   volatile bool             logBreak;         // Indicates tx buffer was a made by a slave break
@@ -178,9 +169,9 @@ typedef struct {
   volatile bool             masterinit;       // Flag, set if unilink was initialized by master
   volatile bool             mode;             // SPI transfer mode (1=rx, 0=tx)
   volatile uint8_t          status;           // Stores unilink status
-  volatile uint8_t          statusTimer;      // Stores unilink status timer
   volatile uint8_t          ownAddr;          // Stores device address
   volatile uint8_t          groupID;          // Stores group ID
+  volatile uint8_t          lastAutoStatus;   // Stores last cmd sent by unilink_auto_status
   volatile uint8_t          disc;             // Stores current disc
   volatile uint8_t          lastDisc;         // Stores previous disc after a disc change
   volatile uint8_t          track;            // Stores current track
@@ -197,29 +188,31 @@ typedef struct {
   volatile uint8_t          logData[parity2_L+1]; // Stores log packet
   volatile uint16_t         millis;           // millisecond timer, for generating the playback time
   volatile uint16_t         timeout;          // Timeout counter for detecting bus stall
+  volatile uint16_t         statusTimer;      // Stores unilink status timer
 
   TIM_HandleTypeDef*        timer;            // Stores the address of the clock timer handler (for clock timeout)
   SPI_HandleTypeDef*        SPI;              // Stores the address of the SPI handler
 }unilink_t;
 
 
-#define BrkSiz              16
+#define _BREAK_QUEUE_SZ_             16
 typedef struct{
+  uint8_t                   break_counter;    // For rate limiter on self-generated messages
   volatile uint8_t          dataTime;         // For measuring data high/low states
   volatile uint16_t         lost;             // Counter for discarded slavebreaks if the queue was full
   volatile uint8_t          pending;          // Counter of slavebreaks pending to be send
-  volatile uint8_t          BfPos;            // Input buffer position
-  volatile uint8_t          SendPos;          // Sending buffer position
-  uint8_t                   data[BrkSiz][parity2_L+3]; // tx buffer queue data. Byte 16 is tx size
+  volatile uint8_t          in;               // Input buffer position
+  volatile uint8_t          out;              // Sending buffer position
+  uint8_t                   data[_BREAK_QUEUE_SZ_][parity2_L+3]; // tx buffer queue data. Byte 16 is tx size
   volatile uint8_t          lastAutoCmd;      // last self-generated break command (when no requested from master)
   volatile breakMsgState_t  msg_state;        // status for msg  sending
   breakState_t              break_state;      // status for generating break condition
 }slaveBreak_t;
 
 typedef struct{
-  volatile uint8_t          status;           // Stores magazine status
+  volatile uint8_t          status;           // Stores cartridge status for cmd_cartridgeinfo
   union{
-    volatile uint8_t        cmd2;
+    volatile uint8_t        cmd2;             // Stores magazine status for cmd_magazine
     struct{
       volatile unsigned     CD5_present:1;
       volatile unsigned     CD6_present:1;
@@ -233,11 +226,11 @@ typedef struct{
   };
 }magazine_t;
 
-typedef struct{
+typedef struct{                               // Local variables for cd data
   volatile bool     inserted;
-  volatile uint8_t  tracks;
-  volatile uint8_t  mins;
-  volatile uint8_t  secs;
+  volatile uint8_t  tracks;                   // Must be 99 for empty disc
+  volatile uint8_t  mins;                     // Must be 0 for empty disc
+  volatile uint8_t  secs;                     // Must be 0 for empty disc
 }cdinfo_t;
 
 
@@ -253,7 +246,7 @@ extern cdinfo_t     cd_data[6];
 #define   msg_time             { addr_display, unilink.ownAddr, cmd_time, 0x00, hex2bcd(unilink.track), hex2bcd(unilink.min), hex2bcd(unilink.sec), ((unilink.disc<<4)|0xA) }
 #define   msg_magazine         { addr_master,  unilink.ownAddr, cmd_magazine, mag_data.cmd2 ,0x00 ,0x00 ,0x00 , 0x06 }
 #define   msg_mag_slot_empty   { addr_master,  unilink.ownAddr, cmd_cartridgeinfo, mag_slot_empty, 0x20 ,0x00 ,0x00, (unilink.disc<<4) }
-#define   msg_cartridge_info   { addr_master,  unilink.ownAddr, cmd_cartridgeinfo, mag_data.status, 0x20 ,0x00 ,0x00, (unilink.disc<<4) }                       //  XXX: Unused?
+#define   msg_cartridge_info   { addr_master,  unilink.ownAddr, cmd_cartridgeinfo, mag_data.status, 0x20 ,0x00 ,0x00, (unilink.disc<<4) }
 #define   msg_dspchange        { addr_dsp,     unilink.ownAddr, cmd_dspdiscchange, 0x00, 0x00, 0x00, 0x00, ((unilink.disc<<4)|0x8) }
 #define   msg_intro_end        { addr_master,  unilink.ownAddr, cmd_intro_end, 0x10, 0x00, 0x00, 0x01, (unilink.disc<<4) }
 #define   msg_discinfo_empty   { addr_master,  unilink.ownAddr, cmd_discinfo, 0x01, 0x99, 0x00, 0x00, 0x01 }

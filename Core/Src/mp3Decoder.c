@@ -4,11 +4,12 @@
  *  Created on: Mar 21, 2021
  *      Author: David
  */
+#include "main.h"
 #include "i2sAudio.h"
-#include "fatfs.h"
 #include "mp3Decoder.h"
 #include "spiritMP3Dec.h"
-
+#if defined AUDIO_SUPPORT
+#include "fatfs.h"
 
 ID3TAG_t ID3TAG;
 extern system_t systemStatus;
@@ -79,3 +80,4 @@ unsigned int RetrieveMP3Data(void *pMP3CompressedData, unsigned int nMP3DataSize
 uint32_t mp3FillBuffer(int16_t* dest, uint16_t samples){
   return (SpiritMP3Decode( systemStatus.decoder, (int16_t *)dest, samples/2, NULL )*2); // 1 MP3 sample outputs 2 PCM samples (stereo)
 }
+#endif

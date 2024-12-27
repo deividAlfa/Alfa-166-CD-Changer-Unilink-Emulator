@@ -27,12 +27,13 @@
 
 
 /*  Unilink protocol stuff */
-#define answer_clk_timeout  10               // Timeout in ms waiting for master clock to send a response
-#define byte_clk_timeout    2000            // Timeout in us between bytes in a frame
-#define master_clk_timeout  2000            // Timeout in ms without master clock when idle
-#define break_interval      4               // Don't flood the master with slave request too often? XXX: Maybe not required?
+#define _MASTER_REQUEST_TIMEOUT_  10              // Timeout in ms waiting for master clock to start sending clocks for our answer
+#define _BYTE_TIMEOUT_            2000            // Timeout in us between bytes in a frame
+#define _RESET_TIMEOUT_           2000            // Timeout in ms without master clock when idle causing a warm reset
+#define _PWROFF_TIMEOUT_          10000           // Timeout in ms without master clock to release PWR_ON pin ans shut down (Ourselves)
+#define _BREAK_INTERVAL_          10              // Limiter for self-generated messages to avoid flooding the master
 
-#define MAXDISCS            6                 // Max discs in the system
+#define _DISCS_                   6               // Discs in the system
 
 
 
