@@ -51,16 +51,21 @@ Check "unilink.h" and "unilink.c".
 <a id="debugging"></a>
 ## Debugging
 
-The firmware has different levels of debugging the Unilink data, see `config.h`.<br>
-
-  - SWO_PRINT, UART_PRINT and USB_LOG switches will enable each logging output.<br>
-    - UART_PRINT Enables serial port logging to PA9 pin, 1Mbit baudrate.
-    - SWO_PRINT Enables SWO pin logging. Connect the ST-Link to the STM32 (SWC=PA14 SWD=PA13 SWO=PB3).
-      Open Printf SWO viever in ST-Link utility, set core clock to 96000000Hz.
-    - USB_LOG** Enables USB logging, creating a file `log.txt`.
-  - Unilink_Log_Detailed Will split the data frames within brackets, so the data and checksums can be read easier.
-  - PASSIVE_MODE will disable the slave interface and set the device in sniffer mode.<br>
-  In this mode it can output the dialog between the ICS and the CD changer.
+The firmware has different levels of debugging the Unilink data, see `config.h`.
+  - UNILINK_LOG_ENABLE - Prints Unilink frames.
+  - UNILINK_LOG_DETAILED - Decodes and prints what each frame means.
+  - UNILINK_LOG_TIMESTAMP - Adds timestamps to each frame.  
+  
+  - UART_PRINT - Enables serial port logging to PA9 pin, 1Mbit baudrate.
+  - SWO_PRINT - Enables SWO pin logging. Connect the ST-Link to the STM32 (SWC=PA14 SWD=PA13 SWO=PB3).
+                Open Printf SWO viever in ST-Link utility, set core clock to 96000000Hz.
+  - USB_LOG - Enables USB logging, creating a file `log.txt`.
+  
+Working options:
+  - PASSIVE_MODE  - Will disable the slave interface and set the device in sniffer mode.<br>
+    In this mode it can output the dialog between the ICS and the CD changer.
+  - AUDIO_SUPPORT - Enable USB handling and MP3 decoding, fully integrated into Unilink.
+  - BT_SUPPORT - Adds support for controlling a bluetooth module.
   
  Example log outputs:<br>
  
