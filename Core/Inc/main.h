@@ -97,6 +97,10 @@ void DebugPulse(uint8_t pulses);
 #define UNILINK_CLOCK_GPIO_Port GPIOA
 #define UNILINK_DATA_Pin GPIO_PIN_6
 #define UNILINK_DATA_GPIO_Port GPIOA
+#define BCK_Pin GPIO_PIN_0
+#define BCK_GPIO_Port GPIOB
+#define LCK_Pin GPIO_PIN_1
+#define LCK_GPIO_Port GPIOB
 #define BT_PWR_Pin GPIO_PIN_2
 #define BT_PWR_GPIO_Port GPIOB
 #define LED3_Pin GPIO_PIN_10
@@ -115,6 +119,8 @@ void DebugPulse(uint8_t pulses);
 #define PREV_GPIO_Port GPIOA
 #define NEXT_Pin GPIO_PIN_10
 #define NEXT_GPIO_Port GPIOA
+#define DOUT_Pin GPIO_PIN_8
+#define DOUT_GPIO_Port GPIOB
 #define PWR_ON_Pin GPIO_PIN_9
 #define PWR_ON_GPIO_Port GPIOB
 
