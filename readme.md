@@ -69,14 +69,14 @@ Working options:
   
  Example log outputs:<br>
  
-####  Unilink_Log_Detailed disabled: 
+####  UNILINK_LOG_DETAILED disabled: 
     31 10 01 13 55
     10 31 97 01 D9 20 79 46 10 C8
     31 10 01 13 55
     10 31 00 00 41
     31 11 B0 12 04 00 00 00 00 04  
     
-####  Unilink_Log_Detailed enabled: 
+####  UNILINK_LOG_DETAILED enabled: 
     [31 10 01 13][55]                                    MASTER REQUEST: Slave poll
     [10 31 97 01][D9][20 79 46 10][C8]                   DISC INFO: Disc:1 Tracks:20 79m:46s
     [31 10 01 13][55]                                    MASTER REQUEST: Slave poll
