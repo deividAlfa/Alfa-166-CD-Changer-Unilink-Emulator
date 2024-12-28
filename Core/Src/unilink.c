@@ -65,7 +65,7 @@ void unilink_init(SPI_HandleTypeDef* SPI, TIM_HandleTypeDef* tim){
   cd_data[0].mins=55;
   cd_data[0].secs=55;
   cd_data[0].inserted=1;
-#ifdef _BT_MODE_
+#ifdef BT_SUPPORT
   unilink.track = 50;
 #else
   unilink.track = 1;
@@ -189,7 +189,7 @@ void unilink_handle(void){
 #endif
 
   unilink_handle_led();                             // Handle activity led
-#ifdef _BT_MODE_
+#ifdef BT_SUPPORT
   if(unilink.sec>1){                                // For BT, always resume track 50 after changing
     unilink.track=50;
   }
@@ -333,7 +333,7 @@ void unilink_broadcast(void){                           // BROADCAST COMMANDS
       break;
     case cmd_power:                                     // 0x87 Power Event
       if(unilink.rxData[cmd2]==cmd_pwroff){             // 0x00 Power off
-#ifdef _BT_MODE_
+#ifdef BT_SUPPORT
         BT_Stop();
 #endif
         unilink.play=0;
@@ -390,7 +390,7 @@ void unilink_myid_cmd(void){
             unilink.lastTrack=1;
           }
           unilink.play=1;
-#ifdef _BT_MODE_
+#ifdef BT_SUPPORT
           BT_Play();
 #endif
           unilink_set_status(unilink_playing);
@@ -521,7 +521,7 @@ void unilink_myid_cmd(void){
       unilink.min=0;
       uint8_t disc=unilink.rxData[cmd2]&0x0F;
       uint8_t track=bcd2hex(unilink.rxData[d1]);
-#ifdef _BT_MODE_
+#ifdef BT_SUPPORT
       if(track==unilink.track){
         BT_Prev();
       }

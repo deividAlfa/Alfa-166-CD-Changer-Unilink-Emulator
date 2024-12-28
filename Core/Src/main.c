@@ -179,7 +179,7 @@ int main(void)
     handleAudio();
 #endif
 	  unilink_handle();
-#if defined BT_MODE
+#if defined BT_SUPPORT
 	  BT_handle();
 #endif
 

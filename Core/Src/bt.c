@@ -8,7 +8,7 @@
 #include "bt.h"
 #include "unilink.h"
 
-#if defined BT_MODE
+#if defined BT_SUPPORT
 bt_t bt;
 void BT_decode_led(void);
 void BT_handle_state(void);
