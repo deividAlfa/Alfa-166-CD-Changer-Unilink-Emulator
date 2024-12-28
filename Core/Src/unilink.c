@@ -27,7 +27,7 @@ unilink_t       unilink;
 slaveBreak_t     slaveBreak;
 magazine_t       mag_data;
 cdinfo_t         cd_data[_DISCS_];
-
+const uint8_t mag_cd[_DISCS_] = { mag_cd1, mag_cd2, mag_cd3, mag_cd4, mag_cd5, mag_cd6 };
 
 
 void unilinkColdReset(void);
@@ -58,6 +58,7 @@ void unilink_init(SPI_HandleTypeDef* SPI, TIM_HandleTypeDef* tim){
   unilink.timer    = tim;
   unilink.SPI      = SPI;
 
+  mag_data.status=mag_inserted;
   mag_data.cmd2=0;                        // Clear CDs
   mag_data.CD1_present=1;                 // Set CD1 by default
   cd_data[0].tracks = 88;
@@ -69,6 +70,7 @@ void unilink_init(SPI_HandleTypeDef* SPI, TIM_HandleTypeDef* tim){
 #else
   unilink.track = 1;
 #endif
+  unilink.lastDisc=0;
   unilink.disc = 1;
   //unilink.mag_changed=1;                    // XXX: Required?
 
@@ -90,7 +92,7 @@ void unilink_handle(void){
     setPinLow(PWR_ON_GPIO_Port, PWR_ON_Pin);      // Turn off
     unilink.system_off=1;
   }
-  #ifdef Unilink_Log_Enable
+  #ifdef UNILINK_LOG_ENABLE
   unilinkLog();
   #endif
   if(unilink.received){
@@ -102,43 +104,54 @@ void unilink_handle(void){
     }
     else{
       unilink.bad_checksum=1;                           // Bad checksum, probably skipped a clock, resync by ignoring further data until master stops sending clocks and triggers a byte timeout.
-      #ifdef Unilink_Log_Enable
       putString("BAD CHECKSUM\r\n");
-      #endif
     }
   }
   if(unilink.mag_changed && unilink.masterinit){      // usb was inserted, removed or contents changed
+    uint8_t eject=0, insert=0;
     unilink.mag_changed=0;
-    unilink_clear_slave_break_queue();
-    unilink_set_status(unilink_ejecting);							// FIXME: Not tested
-    unilink_add_slave_break(cmd_status);
-    mag_data.status=mag_removed;
-    unilink_add_slave_break(cmd_cartridgeinfo);
-    unilink.disc=0;                               // First cd is 1. Set to 0 so the following loop works
-    for(uint8_t i=0;i<_DISCS_;i++){                     // Update magazine data
-      if(cd_data[i].inserted){
-        if(unilink.disc==0){                      // Find first cd with files
-          unilink.disc=i+1;                       // Set current disc and track
-          unilink.lastDisc=i+1;
+    unilink.track=1;
+    mag_data.cmd2=0;                              // Clear cds in magazine
+    unilink.lastDisc=0;
+    unilink.disc=0;                               // First cd is 1. Set to 0 to detect if the following loop fails
+    for(uint8_t i=0;i<_DISCS_;i++){               // Scan cd data
+      if(cd_data[i].inserted){                    // Fidn valid cds
+        if(unilink.disc==0){                      // Assign first valid cd
+          unilink.disc=i+1;
           unilink.track=1;
           unilink.lastTrack=1;
-          break;
         }
+        mag_data.cmd2 |= mag_cd[i];               // Add cd to magazine
       }
     }
-    if(unilink.disc!=0){
+    if(unilink.disc!=0 && mag_data.status==mag_inserted ){        // Found cds, magazine was inserted, eject and insert
+      eject=1;
+      insert=1;
+    }
+    else if(unilink.disc!=0 && mag_data.status==mag_removed ){    // Found cds, magazine was removed, insert
+      insert=1;
+    }
+    else if(unilink.disc==0 && mag_data.status==mag_inserted ){   // No cd found, magazine was inserted, eject
+      eject=1;
+    }
+    else if(unilink.disc==0 && mag_data.status==mag_removed ){    // No cd found, magazine was removed, nothing to do
+    }
+
+    if(eject){
+      if(unilink.disc==0){
+        unilink.disc=1;
+      }
+      unilink_set_status(unilink_ejecting);
+      unilink_add_slave_break(cmd_status);
+      mag_data.status=mag_removed;
+      unilink_add_slave_break(cmd_cartridgeinfo);
+      unilink_set_status(unilink_idle);
+    }
+    if(insert){
       mag_data.status=mag_inserted;
       unilink_add_slave_break(cmd_cartridgeinfo);
       unilink_set_status(unilink_changing);
-      unilink_add_slave_break(cmd_status);
-      unilink_set_status(unilink_changed);
-      unilink_add_slave_break(cmd_status);
-      unilink_add_slave_break(cmd_discinfo);
     }
-    unilink_add_slave_break(cmd_magazine);
-    unilink_set_status(unilink_idle);
-    unilink_add_slave_break(cmd_status);
-
 #ifdef AUDIO_SUPPORT
     if(systemStatus.driveStatus==drive_ready && (systemStatus.audioStatus==audio_play || systemStatus.audioStatus==audio_pause))          // Audio playing or paused
         AudioStop();                                                                            // Stop audio
@@ -181,6 +194,10 @@ void unilink_handle(void){
     unilink.track=50;
   }
 #endif
+}
+
+void unilink_update_magazine(void){
+  unilink.mag_changed=1;
 }
 
 void unilink_handle_led(void){                      // ACTIVITY LED
@@ -263,7 +280,7 @@ void unilink_create_msg(uint8_t *msg, volatile uint8_t *dest){
 
   if(dest==unilink.txData){                                     // If dest is tx buffer
     unilink.txSize=size;                                        // Store Tx size
-    unilink_spi_mode(mode_tx);                                  // Set SPI transmit mode
+    unilink_spi_mode(mode_tx);
   }
   else{                                                         // Slave break buffer
     dest[parity2_L+2]=size;                                     // Store Tx size
@@ -362,9 +379,10 @@ void unilink_myid_cmd(void){
     }
     case cmd_play:                                      // 0x20 PLAY
     {
-      if(!unilink.powered_on){                          // Not powered on, ignore
-        break;
+      if(!unilink.powered_on || ++unilink.play_cmd_cnt<2){                        // Not powered on, or first request, ignore
+        break;                                                                    // The ICS sometimes sends play cmd on poweron but it's no sense, it'll send the request again if it really meant to
       }
+      unilink.play_cmd_cnt=0;
       if((mag_data.status!=mag_removed)&&(unilink.status!=unilink_ejecting)){     // If magazine is present and we are not ejecting      //FIXME: Ejecting check might be wrong?
         if(cd_data[unilink.disc-1].inserted){                                     // If current selected disc is valid
           if(unilink.track>cd_data[unilink.disc-1].tracks){                       // If current track is valid
@@ -375,45 +393,35 @@ void unilink_myid_cmd(void){
 #ifdef _BT_MODE_
           BT_Play();
 #endif
-          unilink_set_status(unilink_playing);          // set changing status
+          unilink_set_status(unilink_playing);
           unilink_add_slave_break(cmd_status);
         }
         else{
           unilink.disc=0;
-          for(uint8_t i=0;i<6;i++){                     // Else, find the first valid disc
+          for(uint8_t i=0;i<_DISCS_;i++){                     // Else, find the first valid disc
             if(cd_data[i].inserted){
               unilink.disc=i+1;
               unilink.lastDisc=i+1;
               unilink.track=1;
               unilink.lastTrack=1;
               unilink.play=1;
-              unilink_set_status(unilink_playing);      // set changing status
+              unilink_set_status(unilink_playing);
               unilink_add_slave_break(cmd_status);
               break;
             }
           }
           if(unilink.disc==0){                          // No valid cd was found
-            unilink_set_status(unilink_idle);           // set idle status
+            unilink_set_status(unilink_idle);
             unilink_add_slave_break(cmd_status);        // FIXME: Untested, probably wrong or lacking further actions
           }
         }
-      }
-      else{                                             // If we can't go into play mode
-        unilink.play=0;                                 // FIXME: Also untested
-        unilink.status=unilink_ejecting;
-        unilink_add_slave_break(cmd_status);
-        mag_data.status = mag_removed;
-        unilink_add_slave_break(cmd_cartridgeinfo);
-        unilink_set_status(unilink_idle);
-        unilink_add_slave_break(cmd_status);
-        unilink_add_slave_break(cmd_magazine);
       }
       break;
     }
     case cmd_switch:                                    // 0x21 TA message start
     {
       if(unilink.rxData[cmd2] == 0x20){
-        unilink_set_status(unilink_idle);               // set idle status
+        unilink_set_status(unilink_idle);
       }
       if(unilink.rxData[cmd2] == 0x10){
       }
@@ -457,6 +465,23 @@ void unilink_myid_cmd(void){
         case 0x10:
         {
           //shuffle_mode(1);
+          break;
+        }
+      }
+      unilink_add_slave_break(cmd_cfgchange);
+      break;
+    }
+    case cmd_intro:                                     // 0x36 Intro mode change
+    {
+      switch(unilink.rxData[cmd2]){
+        case 0x00:
+        {
+          //intro_mode(0);                            // FIXME: Intro is not implemented
+          break;
+        }
+        case 0x10:
+        {
+          //intro_mode(1);
           break;
         }
       }
@@ -515,20 +540,20 @@ void unilink_myid_cmd(void){
       unilink.trackChanged = 1;
       unilink_clear_slave_break_queue();
 
-      if(unilink.disc != disc){             // Disc changed
+      if(unilink.disc != disc){                                   // Disc changed
         unilink.lastDisc = unilink.disc;
         unilink.disc = disc;
         if((mag_data.status!=mag_removed)&&(unilink.status!=unilink_ejecting)){
           if(!cd_data[unilink.disc-1].inserted){                  // If requested disc is not present
-            mag_data.status=mag_slot_empty;
+            mag_data.status=mag_slot_empty;                       // Set empty slot status
             unilink_add_slave_break(cmd_cartridgeinfo);           // Add empty slot msg
-
+            mag_data.status=mag_inserted;                         // Restore cartridge inserted status
             if(cd_data[unilink.lastDisc-1].inserted){             // Return to previous disc if possible
               unilink.disc=unilink.lastDisc;
             }
             else{                                                 // Else, find first valid disc
-              for(uint8_t i=0;i<6;i++){
-                if(cd_data[unilink.disc-1].inserted){
+              for(uint8_t i=0;i<_DISCS_;i++){
+                if(cd_data[i].inserted){
                   unilink.disc = i+1;
                   break;
                 }
@@ -537,14 +562,12 @@ void unilink_myid_cmd(void){
             if(!cd_data[unilink.disc-1].inserted){                // No discs on system
               unilink.trackChanged = 0;                           // Abort track change
               unilink_set_status(unilink_idle);                   // Idle state
-              mag_data.cmd2=0;                                    // FIXME: Untested condition
-              unilink.play=0;
             }
             else{
-              unilink.lastDisc=unilink.disc;        // Update disk
+              unilink.lastDisc=unilink.disc;                      // Update disk
             }
           }
-          if(unilink.status != unilink_idle){       // All good
+          if(unilink.status != unilink_idle){                     // All good
             unilink_add_slave_break(cmd_discinfo);
             unilink_add_slave_break(cmd_cfgchange);
             unilink_add_slave_break(cmd_dspdiscchange);
@@ -553,24 +576,22 @@ void unilink_myid_cmd(void){
             unilink_add_slave_break(cmd_status);
           }
         }
-        else{                                       // FIXME: Untested, find how to deal with this
-          for(uint8_t i=0;i<6;i++){                 // Clear discs
+        else{                                                     // ICS requested a disc while we where ejecting? Very unlikely but...
+          for(uint8_t i=0;i<_DISCS_;i++){                         // Clear discs
             cd_data[unilink.disc-1].inserted=0;
           }
           mag_data.cmd2=0;
+          unilink.status=unilink_ejecting;
+          unilink_add_slave_break(cmd_status);
           mag_data.status=mag_removed;
           unilink_add_slave_break(cmd_cartridgeinfo);
-          mag_data.cmd2=0;
-          unilink_add_slave_break(cmd_magazine);
           unilink_set_status(unilink_idle);
           unilink_add_slave_break(cmd_status);
           unilink.play=0;
         }
       }
       else{
-        unilink_set_status(unilink_playing);
-        //unilink_add_slave_break(cmd_discinfo);
-        //unilink_add_slave_break(cmd_time);
+        unilink_set_status(unilink_playing);                      // Track changed
       }
       break;
     }
@@ -629,29 +650,23 @@ void unilink_set_status(uint8_t status){
 }
 
 bool unilink_checksum(void){                  // Check parity of complete Unilink packet
-    uint8_t count=0;                          // local byte counter
-    uint8_t size=unilink.rxSize;              //
+    uint8_t i=0;                              // local byte counter
     uint8_t checksum=0;                       // local checksum
 
-    while(count<parity1){                     // calculate checksum for byte 1-4
-      checksum+=unilink.rxData[count++];      // add to checksum
-    }
-    if(checksum==unilink.rxData[count++]){    // verify first checksum
-      if(size==unilink_short){                // short packet?
-        return(unilink.rxData[count+1]==0);   // return true if checksum is ok and termination byte is 0
+    for(i=0;i<(unilink.rxSize-2);i++){
+      if(i==parity1){                         // Short messages will never get here, this is the first checksum for medium or long frame
+        if(checksum!=unilink.rxData[parity1]){
+          return 0;
+        }
+      }
+      else{
+        checksum+=unilink.rxData[i];
       }
     }
-    else{
-      return 0;                               // First checksum is invalid, return false
+    if( checksum!=unilink.rxData[i] || unilink.rxData[i+1]!=0 )  {
+      return 0;
     }
-
-    while(count<(size-2)){                    // medium or long frame, calculate checksum for the remaining bytes
-      checksum+=unilink.rxData[count++];
-    }
-    if(checksum==unilink.rxData[count]){      // verify second checksum
-      return(unilink.rxData[count+1]==0);     // return true if checksum is ok and termination byte is 0
-    }
-    return 0;                                 // Second checksum is invalid, return false
+    return 1;                                 // Second checksum is invalid, return false
 }
 
 void unilinkColdReset(void){
@@ -684,12 +699,10 @@ void unilinkWarmReset(void){
 
   unilink_reset_playback_time();
 
-#ifdef Unilink_Log_Enable
   if(unilink.ownAddr == addr_reset)
     putString("COLD RESET\r\n");
   else
     putString("WARM RESET\r\n");
-#endif
 }
 
 void unilink_data_mode(unilink_DATAmode_t mode){                    // Set DATA pin mode
@@ -708,10 +721,8 @@ void unilink_wait_spi_busy(void){                     // Wait until SPI flag bus
   uint32_t t = HAL_GetTick()+2;                       // 2ms timeout should be more than enough
   while(unilink.SPI->Instance->SR & SPI_SR_BSY){      // Wait until Busy is gone
     if(HAL_GetTick() > t){
-#ifdef Unilink_Log_Enable
       putString("SPI Timeout! Resetting system\r\n");
       HAL_Delay(100);                                 // Some time to send the message just in case
-#endif
       __NVIC_SystemReset();                           // Busy is not going out, we've already tried everything, so reset the system (Should never happen)
     }
   }
@@ -866,7 +877,7 @@ void unilink_add_slave_break(uint8_t command){
       unilink_create_msg(msg,(uint8_t*)slaveBreak.data[i]);
       break;
     }
-    case cmd_cartridgeinfo:
+    case cmd_cartridgeinfo:                           // info about the cartridge
     {
       if(mag_data.status==mag_slot_empty){
         uint8_t msg[]=msg_mag_slot_empty;
@@ -878,13 +889,13 @@ void unilink_add_slave_break(uint8_t command){
       }
       break;
     }
-    case cmd_dspdiscchange:
+    case cmd_dspdiscchange:                           // Sent by the original cd changer after changing cd
     {
       uint8_t msg[]=msg_dspchange;
       unilink_create_msg(msg,(uint8_t*)slaveBreak.data[i]);
       break;
     }
-    case cmd_intro_end:
+    case cmd_intro_end:                               // Sent by the original cd changer after changing cd
     {
       uint8_t msg[]=msg_intro_end;
       unilink_create_msg(msg,(uint8_t*)slaveBreak.data[i]);
@@ -898,7 +909,7 @@ void unilink_add_slave_break(uint8_t command){
       break;
     }
   }
-  if(slaveBreak.data[i][cmd1] == cmd_status){                       // Update our status everytime we send this msg
+  if(slaveBreak.data[i][cmd1] == cmd_status){                       // Update our status after sending current one
     unilink_update_status();
   }
   if(++slaveBreak.in >= _BREAK_QUEUE_SZ_){
@@ -910,12 +921,10 @@ void unilink_add_slave_break(uint8_t command){
 }
 
 void unilink_clear_slave_break_queue(void){
-#ifdef Unilink_Log_Enable
   if(slaveBreak.msg_state > break_msg_pending){
-    putString("Clear slave break: Busy, waiting...\r\n");   // Shouln't happen as this is called inmediately after receiving a B0 Goto command
+    putString("Clear slave break: Busy, waiting...\r\n");         // Shouln't happen as this is called inmediately after receiving a command and no TX should be going on
   }
-#endif
-  while(slaveBreak.msg_state > break_msg_pending);               // If busy, wait until until completed
+  while(slaveBreak.msg_state > break_msg_pending);                // If busy, wait until until completed
   __disable_irq();
   slaveBreak.pending=0;
   slaveBreak.in=0;
@@ -1027,9 +1036,9 @@ void unilink_slave_msg(void){
     unilink.txData[c] = slaveBreak.data[slaveBreak.out][c];
     c++;
   }
-  unilink.txSize=size;                        // Copy Tx size
+  unilink.txSize=size;
   slaveBreak.msg_state=break_msg_pendingTx;
-  unilink_spi_mode(mode_tx);                                // Set SPI transmit mode
+  unilink_spi_mode(mode_tx);
 }
 
 /****************************************************************
@@ -1057,10 +1066,8 @@ void unilink_tick(void){
   unilink.timeout++;
   if(unilink.masterinit){
     if(unilink.timeout > _RESET_TIMEOUT_){          // No with no clock from master
-#ifdef Unilink_Log_Enable
       putString("Master Timeout\r\n");
-#endif
-      unilinkColdReset();                           // Cold reset
+      unilinkColdReset();
     }
   }
   if(slaveBreak.dataTime){                          // For sampling data pin high/low time to generate breaks
@@ -1072,28 +1079,23 @@ void unilink_tick(void){
 
   if(unilink.mode==mode_tx && (unilink.timeout > _MASTER_REQUEST_TIMEOUT_)){  // Timeout while waiting clocks from master to answer a poll cmd
     if(slaveBreak.msg_state==break_msg_pendingTx){
-#ifdef Unilink_Log_Enable
       putString("Slave msg timeout (Pending Tx)\r\n");
-#endif
       slaveBreak.msg_state=break_msg_idle;
     }
     else if(unilink.txCount < unilink.txSize){                // We expect a timeout after sending a frame, so ignore if count is ok
-#ifdef Unilink_Log_Enable
       putString("Answer Timeout (TX)\r\n");                   // Timeout while sending a frame
-#endif
     }
     unilink.timeout=0;
-    unilink_spi_mode(mode_rx);                                // Set RX mode
+    unilink_spi_mode(mode_rx);
   }
 }
 
 void unilink_byte_timeout(void){                              // Byte timeout (When the master already started sending clocks)
   if(unilink.mode==mode_rx){
     if(unilink.rxCount && unilink.rxCount<unilink.rxSize){
-#ifdef Unilink_Log_Enable
-      if(unilink.rxData[cmd1]!=cmd_seek)                      // This command always causes timeout because the ICS doesn't support 16-byte slave poll answers (Max. is 13).
+      if(unilink.rxData[cmd1]!=cmd_seek){                      // This command always causes timeout because the ICS doesn't support 16-byte slave poll answers (Max. is 13).
         putString("Byte timeout (RX)\r\n");                   // This only happens in passive mode, we don't send this message
-#endif
+      }
       unilink_spi_mode(mode_rx);
     }
     else if(unilink.bad_checksum){                            // Resync after a bad checksum, waiting until the master stops transmitting to reset our state
@@ -1103,14 +1105,10 @@ void unilink_byte_timeout(void){                              // Byte timeout (W
   else if(unilink.mode==mode_tx && (unilink.txCount>1)){      // Byte timeout when sending a frame
     if(slaveBreak.msg_state==break_msg_sending){
       slaveBreak.msg_state=break_msg_idle;
-#ifdef Unilink_Log_Enable
       putString("Slave msg byte timeout (TX)\r\n");
-#endif
     }
     else if(unilink.txCount<unilink.txSize){
-#ifdef Unilink_Log_Enable
       putString("Byte timeout (TX)\r\n");
-#endif
     }
     unilink_spi_mode(mode_rx);
   }
@@ -1125,33 +1123,32 @@ void unilink_byte_timeout(void){                              // Byte timeout (W
  ****************************************************************/
 void unilink_callback(void){
   __HAL_TIM_SET_COUNTER(unilink.timer, 0);                        // Reset byte timeout counter
+  __HAL_TIM_CLEAR_FLAG(unilink.timer, TIM_FLAG_UPDATE);
    unilink.timeout=0;
 
   if (unilink.mode==mode_rx && (unilink.SPI->Instance->CR2 & SPI_CR2_RXNEIE)
       && (unilink.SPI->Instance->SR & SPI_SR_RXNE)){              // If in receive mode
     uint8_t rx = ~*(__IO uint8_t *)&unilink.SPI->Instance->DR;    // store last received byte (inverted)
     if(unilink.rxCount==0){                                       // If first byte
-      if( rx<0x10 || rx>0xF0 ){                                   // Ignore invalid dest addresses
+      if( rx<0x10 || rx>0xF0 ){                                   // Ignore invalid addresses
         return;
-      }                                                           // If first valid byte
-      else{
-        unilink.rxSize=unilink_short;                             // set packet size to short
+      }
+      else{                                                       // First valid byte
+        unilink.rxSize=unilink_short;                             // Begin by setting frame size to short until we get cmd1
       }
     }
-    if(unilink.bad_checksum){                                     // Discard everything until a byte timeout happens (Resync)
+    if(unilink.bad_checksum){                                     // bad checksum: Discard everything until the master transmission ends, causing a byte timeout (Resync)
       return;
     }
-    unilink.rxData[unilink.rxCount] = rx;                         // If valid, store data in the buffer
+    unilink.rxData[unilink.rxCount] = rx;                         // Store data in the buffer
     if(unilink.rxCount==cmd1){                                    // cmd1 received, detect msg size now
       if(unilink.rxData[cmd1]>=0xC0){
         unilink.rxSize=unilink_long; }                            // set packet size to long
       else if(unilink.rxData[cmd1]>=0x80){
         unilink.rxSize=unilink_medium; }                          // set packet size to medium
-      else{
-        unilink.rxSize=unilink_short; }                           // set packet size to short
     }
     if(++unilink.rxCount==unilink.rxSize){                        // Frame complete
-#ifdef Unilink_Log_Enable
+#ifdef UNILINK_LOG_ENABLE
       unilinkLogUpdate(mode_rx);
 #endif
       unilink.received=1;                                         // set RX complete status flag
@@ -1161,7 +1158,7 @@ void unilink_callback(void){
   else if (unilink.mode==mode_tx && (unilink.SPI->Instance->CR2 & SPI_CR2_TXEIE)
       && (unilink.SPI->Instance->SR & SPI_SR_TXE)){               // If in transmit mode
     if(unilink.txCount==1){                                       // First interrupt is only caused by empty SPI Tx buffer, second one actually happen when the first byte was sent
-      if(slaveBreak.msg_state==break_msg_pendingTx){              // We set the first byte, this will be the second one
+      if(slaveBreak.msg_state==break_msg_pendingTx){              // We sent the first byte, this will be the second one. If this was a slave break
         slaveBreak.msg_state=break_msg_sending;                   // Update state
       }
     }
@@ -1173,15 +1170,15 @@ void unilink_callback(void){
     }
     if(unilink.txCount == unilink.txSize){                        // Last byte sent
       unilink.txCount++;                                          // Done. Increase txCount so we don't get there again in the following extra clocks sent by the master
-      #ifdef Unilink_Log_Enable                                   // When master stops sending clocks, the byte timeout will reset back to Rx mode.
+#ifdef UNILINK_LOG_ENABLE                                         // When master stops sending clocks, the byte timeout will reset back to Rx mode.
       unilinkLogUpdate(mode_tx);
-      #endif
-      if(slaveBreak.msg_state==break_msg_sending){                // Are we sending a slave response?
-#ifdef Unilink_Log_Enable
+#endif
+      if(slaveBreak.msg_state==break_msg_sending){                // Was this a slave break response?
+#ifdef UNILINK_LOG_ENABLE
         unilink.logBreak=1;
 #endif
         slaveBreak.msg_state=break_msg_idle;                      // Done
-        if(slaveBreak.pending){                                   // We should have something here
+        if(slaveBreak.pending){                                   // Pending should always be at least 1
           slaveBreak.pending--;                                   // Decrease
           if(++slaveBreak.out>=_BREAK_QUEUE_SZ_){;                // Increase out index
             slaveBreak.out=0;

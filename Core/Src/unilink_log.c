@@ -9,7 +9,7 @@
 #include "serial.h"
 
 
-#ifdef Unilink_Log_Enable
+#ifdef UNILINK_LOG_ENABLE
 
 
 void unilinkLogUpdate(unilink_SPImode_t mode){
@@ -58,14 +58,14 @@ void unilinkLog(void){
     unilink.logTx=0;
   }
   else if(unilink.logRx){
-#ifndef PASSIVE_MODE
+#ifndef UNILINK_PASSIVE_MODE
     str[i++]='<';
     str[i++]=' ';
 #endif
     unilink.logRx=0;
   }
   else{
-#ifdef PASSIVE_MODE                                  // Detect slave breaks in PASSIVE_MODE mode
+#ifdef UNILINK_PASSIVE_MODE                                  // Detect slave breaks in PASSIVE_MODE mode
     static breakState_t state;
     switch(state){
       case break_wait_data_low:
@@ -130,7 +130,7 @@ void unilinkLog(void){
             putString("\r\n");
             b_str=0;
           }
-#ifdef Unilink_Log_Timestamp
+#ifdef UNILINK_LOG_TIMESTAMP
           unlinkLogTimestamp();
 #endif
           putString("BREAK\r\n");
@@ -152,7 +152,7 @@ void unilinkLog(void){
     putString("\r\n");
     b_str=0;
   }
-#ifdef Unilink_Log_Timestamp
+#ifdef UNILINK_LOG_TIMESTAMP
   unlinkLogTimestamp();
 #endif
 
@@ -166,7 +166,7 @@ void unilinkLog(void){
 
   // Print frame
   while(count<(size-1)){
-  #ifdef Unilink_Log_Detailed
+  #ifdef UNILINK_LOG_DETAILED
     if(count==0){
       str[i++]='[';
     }
@@ -174,14 +174,14 @@ void unilinkLog(void){
     str[i++]=hex2ascii((unilink.logData[count])>>4);
     str[i++]=hex2ascii((unilink.logData[count])&0x0f);
     count++;
-#ifdef Unilink_Log_Detailed
+#ifdef UNILINK_LOG_DETAILED
     if( count<parity1 || (count>(unilink_short-1) && (count<(size-2)))){
 #else
     if(count<size){
 #endif
         str[i++]=' ';
     }
-    #ifdef Unilink_Log_Detailed
+    #ifdef UNILINK_LOG_DETAILED
     if(    (count==parity1) || (size>unilink_short && count==d1) ||         // Print fields between brackets [x]
         (size==unilink_medium && count==parity2) ||
         (size==unilink_long && count==parity2_L) ){
@@ -194,7 +194,7 @@ void unilinkLog(void){
     }
 #endif
   }
-#ifndef Unilink_Log_Detailed
+#ifndef UNILINK_LOG_DETAILED
   str[i++]='\r';
   str[i++]='\n';
 #endif
@@ -203,7 +203,7 @@ void unilinkLog(void){
   putString(str);
 
   // Print info
-#ifdef Unilink_Log_Detailed                                   // Add separator for the comments
+#ifdef UNILINK_LOG_DETAILED                                   // Add separator for the comments
 
     /*
   if(size<unilink_medium){
@@ -340,15 +340,21 @@ void unilinkLog(void){
       break;
 
     case cmd_repeat:
-      putString("Toggle Repeat\r\n");
+      putString("Toggle Repeat:");
+      putString(unilink.logData[cmd2]&0x10 ? "ON":"OFF");
+      putString("\r\n");
       break;
 
     case cmd_shuffle:
-      putString("Togggle Shuffle\r\n");
+      putString("Togggle Shuffle:");
+      putString(unilink.logData[cmd2]&0x10 ? "ON":"OFF");
+      putString("\r\n");
       break;
 
     case cmd_intro:
-      putString("Toggle Intro\r\n");
+      putString("Toggle Intro:");
+      putString(unilink.logData[cmd2]&0x10 ? "ON":"OFF");
+      putString("\r\n");
       break;
 
     case cmd_intro_end:
@@ -374,7 +380,9 @@ void unilinkLog(void){
       break;
     }
     case cmd_switch:
-      putString("Switch to ?\r\n");
+      putString("Switch to ");
+      putString(unilink.logData[cmd2]==0x10 ? "CD?" : "???");
+      putString("\r\n");
       break;
 
     case cmd_textRequest:
@@ -394,14 +402,14 @@ void unilinkLog(void){
       break;
 
     case cmd_power:
-      putString("Power ");
+      putString("POWER: ");
       switch(unilink.logData[cmd2]){
         case cmd_pwroff:
-          putString("OFF\r\n");
+          putString("Go Idle\r\n");
           break;
 
         case cmd_pwron:
-          putString("ON\r\n");
+          putString("Wake from Idle\r\n");
           break;
 
         default:
@@ -541,9 +549,19 @@ void unilinkLog(void){
       break;
     }
     case cmd_source:
-      putString("Set source ?\r\n");
+    {
+      char s[4] = {0};
+      putString("Switch source from ");
+      s[0]='0'+(unilink.logData[d1]>>4);
+      s[1]='0'+(unilink.logData[d1]&0xF);
+      putString(s);
+      putString(" to ");
+      s[0]='0'+(unilink.logData[cmd2]>>4);
+      s[1]='0'+(unilink.logData[cmd2]&0xF);
+      putString(s);
+      putString("\r\n");
       break;
-
+    }
     default:
       putString("???\r\n");
   }

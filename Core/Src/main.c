@@ -28,6 +28,7 @@
 #include "serial.h"
 #include "files.h"
 #include "i2sAudio.h"
+#include "bt.h"
 
 /* USER CODE END Includes */
 
@@ -47,8 +48,8 @@
 /* Private variables ---------------------------------------------------------*/
 CRC_HandleTypeDef hcrc;
 
-I2S_HandleTypeDef hi2s2;
-DMA_HandleTypeDef hdma_spi2_tx;
+I2S_HandleTypeDef hi2s5;
+DMA_HandleTypeDef hdma_spi5_tx;
 
 SPI_HandleTypeDef hspi1;
 
@@ -73,10 +74,10 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_TIM10_Init(void);
-static void MX_USART1_UART_Init(void);
 static void MX_CRC_Init(void);
 static void MX_SPI1_Init(void);
-static void MX_I2S2_Init(void);
+static void MX_I2S5_Init(void);
+static void MX_USART1_UART_Init(void);
 void MX_USB_HOST_Process(void);
 
 /* USER CODE BEGIN PFP */
@@ -134,31 +135,30 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_TIM10_Init();
-  MX_USART1_UART_Init();
-  MX_USB_HOST_Init();
   MX_CRC_Init();
-  MX_FATFS_Init();
   MX_SPI1_Init();
-  MX_I2S2_Init();
+  MX_FATFS_Init();
+  MX_USB_HOST_Init();
+  MX_I2S5_Init();
+  MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
 
   __HAL_DBGMCU_FREEZE_TIM10();
-  __HAL_DBGMCU_FREEZE_TIM11();
 
-#if defined Unilink_Log_Enable && defined UART_PRINT
+#ifdef UART_PRINT
   initSerial(&huart1);
 #endif
 
-#ifdef Unilink_Log_Enable
   putString("System init...\r\n");
-  #ifdef DEBUG_ALLOC
+
+#ifdef DEBUG_ALLOC
   debug_heap();
 #endif
-#endif
+
 
   unilink_init(&hspi1, &htim10);
 #ifdef AUDIO_SUPPORT
-  initAudio(&hi2s2);
+  initAudio(&hi2s5);
 #endif
 
   /* USER CODE END 2 */
@@ -179,6 +179,9 @@ int main(void)
     handleAudio();
 #endif
 	  unilink_handle();
+#if defined BT_MODE
+	  BT_handle();
+#endif
 
     /* USER CODE END WHILE */
     MX_USB_HOST_Process();
@@ -264,36 +267,36 @@ static void MX_CRC_Init(void)
 }
 
 /**
-  * @brief I2S2 Initialization Function
+  * @brief I2S5 Initialization Function
   * @param None
   * @retval None
   */
-static void MX_I2S2_Init(void)
+static void MX_I2S5_Init(void)
 {
 
-  /* USER CODE BEGIN I2S2_Init 0 */
+  /* USER CODE BEGIN I2S5_Init 0 */
 
-  /* USER CODE END I2S2_Init 0 */
+  /* USER CODE END I2S5_Init 0 */
 
-  /* USER CODE BEGIN I2S2_Init 1 */
+  /* USER CODE BEGIN I2S5_Init 1 */
 
-  /* USER CODE END I2S2_Init 1 */
-  hi2s2.Instance = SPI2;
-  hi2s2.Init.Mode = I2S_MODE_MASTER_TX;
-  hi2s2.Init.Standard = I2S_STANDARD_PHILIPS;
-  hi2s2.Init.DataFormat = I2S_DATAFORMAT_16B;
-  hi2s2.Init.MCLKOutput = I2S_MCLKOUTPUT_DISABLE;
-  hi2s2.Init.AudioFreq = I2S_AUDIOFREQ_44K;
-  hi2s2.Init.CPOL = I2S_CPOL_LOW;
-  hi2s2.Init.ClockSource = I2S_CLOCK_PLL;
-  hi2s2.Init.FullDuplexMode = I2S_FULLDUPLEXMODE_DISABLE;
-  if (HAL_I2S_Init(&hi2s2) != HAL_OK)
+  /* USER CODE END I2S5_Init 1 */
+  hi2s5.Instance = SPI5;
+  hi2s5.Init.Mode = I2S_MODE_MASTER_TX;
+  hi2s5.Init.Standard = I2S_STANDARD_PHILIPS;
+  hi2s5.Init.DataFormat = I2S_DATAFORMAT_16B;
+  hi2s5.Init.MCLKOutput = I2S_MCLKOUTPUT_DISABLE;
+  hi2s5.Init.AudioFreq = I2S_AUDIOFREQ_44K;
+  hi2s5.Init.CPOL = I2S_CPOL_LOW;
+  hi2s5.Init.ClockSource = I2S_CLOCK_PLL;
+  hi2s5.Init.FullDuplexMode = I2S_FULLDUPLEXMODE_DISABLE;
+  if (HAL_I2S_Init(&hi2s5) != HAL_OK)
   {
     Error_Handler();
   }
-  /* USER CODE BEGIN I2S2_Init 2 */
+  /* USER CODE BEGIN I2S5_Init 2 */
 
-  /* USER CODE END I2S2_Init 2 */
+  /* USER CODE END I2S5_Init 2 */
 
 }
 
@@ -380,7 +383,7 @@ static void MX_USART1_UART_Init(void)
 
   /* USER CODE END USART1_Init 1 */
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 115200;
+  huart1.Init.BaudRate = 1000000;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
@@ -407,7 +410,6 @@ static void MX_DMA_Init(void)
 
   /* DMA controller clock enable */
   __HAL_RCC_DMA2_CLK_ENABLE();
-  __HAL_RCC_DMA1_CLK_ENABLE();
 
   /* Configure DMA request hdma_memtomem_dma2_stream0 on DMA2_Stream0 */
   hdma_memtomem_dma2_stream0.Instance = DMA2_Stream0;
@@ -429,9 +431,9 @@ static void MX_DMA_Init(void)
   }
 
   /* DMA interrupt init */
-  /* DMA1_Stream4_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Stream4_IRQn, 2, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Stream4_IRQn);
+  /* DMA2_Stream4_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream4_IRQn, 3, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream4_IRQn);
 
 }
 
@@ -456,10 +458,10 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, PLAY_Pin|NEXT_Pin|PREV_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, BT_ON_Pin|PLAY_Pin|PWR_ON_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(PWR_ON_GPIO_Port, PWR_ON_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, STOP_Pin|PREV_Pin|NEXT_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : LED_Pin */
   GPIO_InitStruct.Pin = LED_Pin;
@@ -468,10 +470,35 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LED_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PLAY_Pin NEXT_Pin PREV_Pin */
-  GPIO_InitStruct.Pin = PLAY_Pin|NEXT_Pin|PREV_Pin;
+  /*Configure GPIO pin : BTN_Pin */
+  GPIO_InitStruct.Pin = BTN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(BTN_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : BT_PWR_Pin */
+  GPIO_InitStruct.Pin = BT_PWR_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(BT_PWR_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : LED3_Pin LED2_Pin LED1_Pin */
+  GPIO_InitStruct.Pin = LED3_Pin|LED2_Pin|LED1_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : BT_ON_Pin PLAY_Pin */
+  GPIO_InitStruct.Pin = BT_ON_Pin|PLAY_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : STOP_Pin PREV_Pin NEXT_Pin */
+  GPIO_InitStruct.Pin = STOP_Pin|PREV_Pin|NEXT_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 

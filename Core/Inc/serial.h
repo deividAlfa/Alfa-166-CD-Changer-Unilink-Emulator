@@ -13,7 +13,6 @@
 void initSerial(UART_HandleTypeDef* huart);
 void sendSerial(uint8_t *ptr, uint32_t len);
 #endif
-
 void putString(const char *str);
 void flush_log(void);
 void handle_log(void);

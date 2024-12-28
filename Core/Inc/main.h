@@ -32,15 +32,16 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <stdbool.h>
 #include <string.h>
 #include <malloc.h>
-
+#include "config.h"
+#include "files.h"
 #include "unilink.h"
 #include "gpio.h"
-#include "config.h"
+
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -90,22 +91,30 @@ void DebugPulse(uint8_t pulses);
 /* Private defines -----------------------------------------------------------*/
 #define LED_Pin GPIO_PIN_13
 #define LED_GPIO_Port GPIOC
-#define PLAY_Pin GPIO_PIN_0
-#define PLAY_GPIO_Port GPIOA
-#define NEXT_Pin GPIO_PIN_1
-#define NEXT_GPIO_Port GPIOA
-#define PREV_Pin GPIO_PIN_2
-#define PREV_GPIO_Port GPIOA
+#define BTN_Pin GPIO_PIN_0
+#define BTN_GPIO_Port GPIOA
 #define UNILINK_CLOCK_Pin GPIO_PIN_5
 #define UNILINK_CLOCK_GPIO_Port GPIOA
 #define UNILINK_DATA_Pin GPIO_PIN_6
 #define UNILINK_DATA_GPIO_Port GPIOA
-#define LCK_Pin GPIO_PIN_12
-#define LCK_GPIO_Port GPIOB
-#define BCK_Pin GPIO_PIN_13
-#define BCK_GPIO_Port GPIOB
-#define DOUT_Pin GPIO_PIN_15
-#define DOUT_GPIO_Port GPIOB
+#define BT_PWR_Pin GPIO_PIN_2
+#define BT_PWR_GPIO_Port GPIOB
+#define LED3_Pin GPIO_PIN_10
+#define LED3_GPIO_Port GPIOB
+#define BT_ON_Pin GPIO_PIN_12
+#define BT_ON_GPIO_Port GPIOB
+#define LED2_Pin GPIO_PIN_13
+#define LED2_GPIO_Port GPIOB
+#define LED1_Pin GPIO_PIN_14
+#define LED1_GPIO_Port GPIOB
+#define PLAY_Pin GPIO_PIN_15
+#define PLAY_GPIO_Port GPIOB
+#define STOP_Pin GPIO_PIN_8
+#define STOP_GPIO_Port GPIOA
+#define PREV_Pin GPIO_PIN_9
+#define PREV_GPIO_Port GPIOA
+#define NEXT_Pin GPIO_PIN_10
+#define NEXT_GPIO_Port GPIOA
 #define PWR_ON_Pin GPIO_PIN_9
 #define PWR_ON_GPIO_Port GPIOB
 

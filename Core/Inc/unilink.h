@@ -153,22 +153,8 @@ typedef enum {
 
 
 typedef struct {
-  volatile bool             system_off;       // Stores turn off flag after very long timeout, assuming the car is off
-  volatile bool             logRx;            // Indicates rx buffer ready for logging
-  volatile bool             logTx;            // Indicates tx buffer ready for logging
-  volatile bool             logBreak;         // Indicates tx buffer was a made by a slave break
-  volatile bool             play;             // Stores play status from master
-  volatile bool             powered_on;       // Stores play status from master when receiving power command
-  volatile bool             trackChanged;     // Flag, set if disc/track needs to be changed
-  volatile bool             mag_changed;      // Flag, set if usb was changed
-  volatile bool             received;         // Flag, set when packet received
-  volatile bool             bad_checksum;     // Flag, bad packet received, force byte timeout to clean clocks
-  volatile bool             appoint;          // Flag, set if we did appoint
-  volatile bool             busReset;         // Flag, set if master sent the bus reset
-  volatile bool             hwinit;           // Flag, set if unilink hw is initialized
-  volatile bool             masterinit;       // Flag, set if unilink was initialized by master
-  volatile bool             mode;             // SPI transfer mode (1=rx, 0=tx)
   volatile uint8_t          status;           // Stores unilink status
+           uint8_t          play_cmd_cnt;     // The ICS seems to send play command once at boot, while it shouldn't, so ignore first request
   volatile uint8_t          ownAddr;          // Stores device address
   volatile uint8_t          groupID;          // Stores group ID
   volatile uint8_t          lastAutoStatus;   // Stores last cmd sent by unilink_auto_status
@@ -189,7 +175,26 @@ typedef struct {
   volatile uint16_t         millis;           // millisecond timer, for generating the playback time
   volatile uint16_t         timeout;          // Timeout counter for detecting bus stall
   volatile uint16_t         statusTimer;      // Stores unilink status timer
-
+  union{
+    volatile uint16_t flags;
+    struct{
+      unsigned             system_off   :1;   // Stores turn off flag after very long timeout, assuming the car is off
+      unsigned             logRx        :1;   // Indicates rx buffer ready for logging
+      unsigned             logTx        :1;   // Indicates tx buffer ready for logging
+      unsigned             logBreak     :1;   // Indicates tx buffer was a made by a slave break
+      unsigned             play         :1;   // Stores play status from master
+      unsigned             powered_on   :1;   // Stores play status from master when receiving power command
+      unsigned             trackChanged :1;   // Flag, set if disc/track needs to be changed
+      unsigned             mag_changed  :1;   // Flag, set if usb was changed
+      unsigned             received     :1;   // Flag, set when packet received
+      unsigned             bad_checksum :1;   // Flag, bad packet received, force byte timeout to clean clocks
+      unsigned             appoint      :1;   // Flag, set if we did appoint
+      unsigned             busReset     :1;   // Flag, set if master sent the bus reset
+      unsigned             hwinit       :1;   // Flag, set if unilink hw is initialized
+      unsigned             masterinit   :1;   // Flag, set if unilink was initialized by master
+      unsigned             mode         :1;   // SPI transfer mode (1=rx, 0=tx)
+    };
+  };
   TIM_HandleTypeDef*        timer;            // Stores the address of the clock timer handler (for clock timeout)
   SPI_HandleTypeDef*        SPI;              // Stores the address of the SPI handler
 }unilink_t;
@@ -226,6 +231,15 @@ typedef struct{
   };
 }magazine_t;
 
+typedef enum{             // For magazine cmd2
+  mag_cd1 = 16,
+  mag_cd2 = 32,
+  mag_cd3 = 64,
+  mag_cd4 = 128,
+  mag_cd5 = 1,
+  mag_cd6 = 2,
+}mag_cdtag_t;
+
 typedef struct{                               // Local variables for cd data
   volatile bool     inserted;
   volatile uint8_t  tracks;                   // Must be 99 for empty disc
@@ -238,16 +252,17 @@ extern unilink_t    unilink;
 extern slaveBreak_t slaveBreak;
 extern uint8_t      raw[16];
 extern magazine_t   mag_data;
-extern cdinfo_t     cd_data[6];
+extern const uint8_t mag_cd[_DISCS_];
+extern cdinfo_t     cd_data[_DISCS_];
 
                               // Checksums not included - computed later.
                               //    RAD           TAD           CMD1      CMD2    D1  D2  D3  D4
-#define   msg_seek             { addr_display, unilink.ownAddr, cmd_seek, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,0x08 }
+#define   msg_seek             { addr_master,  unilink.ownAddr, cmd_seek, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,0x08 }
 #define   msg_time             { addr_display, unilink.ownAddr, cmd_time, 0x00, hex2bcd(unilink.track), hex2bcd(unilink.min), hex2bcd(unilink.sec), ((unilink.disc<<4)|0xA) }
 #define   msg_magazine         { addr_master,  unilink.ownAddr, cmd_magazine, mag_data.cmd2 ,0x00 ,0x00 ,0x00 , 0x06 }
-#define   msg_mag_slot_empty   { addr_master,  unilink.ownAddr, cmd_cartridgeinfo, mag_slot_empty, 0x20 ,0x00 ,0x00, (unilink.disc<<4) }
-#define   msg_cartridge_info   { addr_master,  unilink.ownAddr, cmd_cartridgeinfo, mag_data.status, 0x20 ,0x00 ,0x00, (unilink.disc<<4) }
-#define   msg_dspchange        { addr_dsp,     unilink.ownAddr, cmd_dspdiscchange, 0x00, 0x00, 0x00, 0x00, ((unilink.disc<<4)|0x8) }
+#define   msg_mag_slot_empty   { addr_display,  unilink.ownAddr, cmd_cartridgeinfo, mag_slot_empty, 0x20 ,0x00 ,0x00, (unilink.disc<<4) }
+#define   msg_cartridge_info   { mag_data.status == mag_inserted ? addr_display2 : addr_display,  unilink.ownAddr, cmd_cartridgeinfo, mag_data.status, 0x20 ,0x00 ,0x00, (unilink.disc<<4) }
+#define   msg_dspchange        { addr_dsp,  unilink.ownAddr, cmd_dspdiscchange, 0x00, 0x00, 0x00, 0x00, ((unilink.disc<<4)|0x8) }
 #define   msg_intro_end        { addr_master,  unilink.ownAddr, cmd_intro_end, 0x10, 0x00, 0x00, 0x01, (unilink.disc<<4) }
 #define   msg_discinfo_empty   { addr_master,  unilink.ownAddr, cmd_discinfo, 0x01, 0x99, 0x00, 0x00, 0x01 }
 #define   msg_discinfo         { addr_master,  unilink.ownAddr, cmd_discinfo, 0x01, hex2bcd(cd_data[unilink.disc-1].tracks), hex2bcd(cd_data[unilink.disc-1].mins), hex2bcd(cd_data[unilink.disc-1].secs), (unilink.disc<<4) }
@@ -259,6 +274,7 @@ extern cdinfo_t     cd_data[6];
 
 void unilink_init(SPI_HandleTypeDef* SPI, TIM_HandleTypeDef* tim);
 void unilink_handle(void);
+void unilink_update_magazine(void);
 void unilink_tick(void);
 void unilink_callback(void);
 void unilink_byte_timeout(void);

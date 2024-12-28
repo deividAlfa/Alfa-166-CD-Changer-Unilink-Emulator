@@ -60,37 +60,15 @@ void handleFS(void){
   }
 #ifdef AUDIO_SUPPORT
   if(systemStatus.driveStatus==drive_mounted){
-    systemStatus.fileStatus   = file_none;
+    systemStatus.driveStatus = drive_ready;
+    systemStatus.fileStatus = file_none;
     scanFS();
-    mag_data.cmd2=0;                                // Clear disc presence flags
     for(uint8_t i=0;i<FOLDERS;i++){                       // Transfer file count to cd info (for unilink)
-
       if(systemStatus.fileCount[i]){
-        systemStatus.driveStatus = drive_ready;     // If any folder with audio files is found, set drive ready
         cd_data[i].tracks=systemStatus.fileCount[i];
         cd_data[i].mins=99;
         cd_data[i].secs=59;
         cd_data[i].inserted=1;
-        switch(i){                                  // Set mag data disc presence
-          case 0:
-            mag_data.CD1_present=1;
-            break;
-          case 1:
-            mag_data.CD2_present=1;
-            break;
-          case 2:
-            mag_data.CD3_present=1;
-            break;
-          case 3:
-            mag_data.CD4_present=1;
-            break;
-          case 4:
-            mag_data.CD5_present=1;
-            break;
-          case 5:
-            mag_data.CD6_present=1;
-            break;
-        }
       }
       else{
         cd_data[i].inserted=0;
@@ -99,23 +77,21 @@ void handleFS(void){
         cd_data[i].secs=0;
       }
     }
-    unilink.mag_changed=1;                          // set flag to update
-
-    if(systemStatus.driveStatus != drive_ready){    // Something went wrong
-      iprintf("SYSTEM: No files found\r\n");
-      systemStatus.driveStatus=drive_error;         // No files
-      //unilink_clear_slave_break_queue();
-      //mag_data.status==mag_removed;                       //FIXME: Untested
-      //unilink_add_slave_break(cmd_cartridgeinfo);
-      //unilink.status=unilink_ejecting;
-      return;
-    }
+    unilink_update_magazine();
   }
 #endif
 
   if((systemStatus.driveStatus==drive_error) || (systemStatus.driveStatus==drive_removed)){ // if drive removed or error
     iprintf("SYSTEM: Removing mounting point\r\n");
     f_mount(0, "", 1);                              // remove mount point
+    for(uint8_t i=0;i<FOLDERS;i++){                 // Clear cds
+      cd_data[i].inserted=0;
+      cd_data[i].tracks=99;
+      cd_data[i].mins=0;
+      cd_data[i].secs=0;
+    }
+    unilink_update_magazine();
+
     if(systemStatus.driveStatus==drive_removed){
       systemStatus.driveStatus=drive_nodrive;
     }

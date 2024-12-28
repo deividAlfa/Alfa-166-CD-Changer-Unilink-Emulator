@@ -13,7 +13,7 @@
 #include "main.h"
 
 
-#ifdef Unilink_Log_Enable
+#ifdef UNILINK_LOG_ENABLE
 
 
 
@@ -73,6 +73,7 @@ typedef enum{
 void unilinkLogUpdate(unilink_SPImode_t mode);
 void unilinkLog(void);
 #endif
+
 char hex2ascii(uint8_t hex);
 uint8_t hex2bcd(uint8_t hex);           // convert 1 byte BCD to 1 byte HEX
 uint8_t bcd2hex(uint8_t bcd);           // convert 1 byte BCD to 1 byte HEX

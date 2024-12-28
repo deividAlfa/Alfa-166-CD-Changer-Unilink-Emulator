@@ -14,11 +14,53 @@
 #include "usb_host.h"
 #endif
 
-#ifdef Unilink_Log_Enable
+
+int _write(int32_t file, uint8_t *ptr, int32_t len){
+  int32_t l=len;
+#ifdef UART_PRINT
+  sendSerial(ptr, l);
+#endif
+  while(l--){
+
+#ifdef USB_LOG
+    buf[curr_bf][cnt++] = *ptr;
+    if(cnt==BFSZ){
+      wr_log_bf=curr_bf;
+      wr_log_cnt=BFSZ;
+      wr_log=1;
+      cnt=0;
+      if(++curr_bf>1){
+        curr_bf=0;
+      }
+    }
+#endif
+#ifdef SWO_PRINT
+    ITM_SendChar(*ptr++);
+#endif
+  }
+  return len;
+}
+
+void putString(const char *str){
+  uint32_t l = strlen(str);
+  _write(0, (uint8_t*)str, l);
+}
 
 #ifdef UART_PRINT
 UART_HandleTypeDef* uart;
 bool uart_init;
+
+void initSerial(UART_HandleTypeDef* huart){
+  uart=huart;
+  uart->Init.BaudRate = 1000000;
+  HAL_UART_Init(uart);
+  uart_init=1;
+}
+
+void sendSerial(uint8_t *ptr, uint32_t len){
+  if(!uart_init){ return; }
+  HAL_UART_Transmit(uart, ptr, len, 100);
+}
 #endif
 
 #ifdef USB_LOG
@@ -74,55 +116,4 @@ void write_log(void){
   res = f_write(&logfile, buf[wr_log_bf], wr_log_cnt, &wr);
   if(res!=FR_OK || wr!=wr_log_cnt) systemStatus.driveStatus=drive_error;
 }
-#endif
-
-int _write(int32_t file, uint8_t *ptr, int32_t len){
-  int32_t l=len;
-#ifdef UART_PRINT
-  sendSerial(ptr, l);
-#endif
-  while(l--){
-
-#ifdef USB_LOG
-    buf[curr_bf][cnt++] = *ptr;
-    if(cnt==BFSZ){
-      wr_log_bf=curr_bf;
-      wr_log_cnt=BFSZ;
-      wr_log=1;
-      cnt=0;
-      if(++curr_bf>1){
-        curr_bf=0;
-      }
-    }
-#endif
-#ifdef SWO_PRINT
-    ITM_SendChar(*ptr++);
-#endif
-  }
-  return len;
-}
-
-#ifdef UART_PRINT
-void initSerial(UART_HandleTypeDef* huart){
-  uart=huart;
-  uart->Init.BaudRate = 1000000;
-  HAL_UART_Init(uart);
-  uart_init=1;
-}
-#endif
-
-void putString(const char *str){
-  if(*str){                                                 // If empty string, return
-    uint32_t l = strlen(str);
-    _write(0, (uint8_t*)str, l);
-  }
-}
-
-void sendSerial(uint8_t *ptr, uint32_t len){
-#ifdef UART_PRINT
-  if(!uart_init){ return; }
-  HAL_UART_Transmit(uart, ptr, len, 100);
-#endif
-}
-
 #endif

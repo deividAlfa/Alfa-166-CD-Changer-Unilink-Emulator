@@ -8,7 +8,6 @@
 #ifndef INC_I2SAUDIO_H_
 #define INC_I2SAUDIO_H_
 #include "main.h"
-#include "files.h"
 
 #if defined AUDIO_SUPPORT || defined USB_LOG
 #include "FATFS.h"
