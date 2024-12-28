@@ -14,6 +14,24 @@
 #include "usb_host.h"
 #endif
 
+#ifdef USB_LOG
+#define BFSZ   512
+
+uint8_t buf[2][BFSZ];
+uint16_t cnt;
+uint8_t curr_bf;
+bool opened;
+volatile uint8_t wr_log;
+volatile uint8_t wr_log_bf;
+volatile uint16_t wr_log_cnt;
+
+FIL logfile;
+FRESULT res;
+size_t logwritten;
+uint32_t last_log_time;
+
+void write_log(void);
+#endif
 
 int _write(int32_t file, uint8_t *ptr, int32_t len){
   int32_t l=len;
@@ -64,23 +82,6 @@ void sendSerial(uint8_t *ptr, uint32_t len){
 #endif
 
 #ifdef USB_LOG
-#define BFSZ   512
-
-uint8_t buf[2][BFSZ];
-uint16_t cnt;
-uint8_t curr_bf;
-bool opened;
-volatile uint8_t wr_log;
-volatile uint8_t wr_log_bf;
-volatile uint16_t wr_log_cnt;
-
-FIL logfile;
-FRESULT res;
-size_t logwritten;
-uint32_t last_log_time;
-
-void write_log(void);
-
 
 void flush_log(void){
   handle_log();                 // Check if there's a pending write
