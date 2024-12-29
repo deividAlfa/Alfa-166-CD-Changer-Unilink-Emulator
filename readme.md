@@ -13,27 +13,35 @@
 <a id="intro"></a>
 ## Introduction
 This project aims to make a CD changer emulator for the Alfa Romeo 166.<br>
-If you want to learn how Unilink works, check [DOCS](/DOCS) folder.<br>
-There is a lot of data. All I learned from is there.<br>
-Most of it is actually gone from Internet, as the sites were very old. Some were dated back to 2001!<br>
+If you want to learn how Unilink works, check [DOCS](/DOCS) folder, everything I learned came from there.<br>
+There's little information about Unilink on the net, most sites are long gone, some were dated back to the year 2000!<br>
 I could recover some thanks to www.archive.org.<br>
-The code is very valuable, there's almost no information about this on the net.<br>
 
+Credits:
+  - Sander Huijsen for [alfa166unilink](https://sourceforge.net/projects/alfa166unilink-git/)<br>
+  - Michael Wolf for [Becker Unilink site](https://web.archive.org/web/20060214051232/http://www.mictronics.de/unilink_resource.php)
+  - Cleggy for [Understanding the Unilink Bus](https://web.archive.org/web/20060211113837/http://www.cus.org.uk/~cleggy/)
+  - Rubke for [UniLink Information](https://web.archive.org/web/20031217094219/http://members.home.nl/r.aerts/index2.htm) 
+  
 <a id="description"></a>
 ## Project description
 This project enables communication with the ICS emulating the presence of the CD changer.<br>
 It uses a STM32 "blackpill" board with STM32F411 running at 96MHz.<br>
+It's currently working pretty well, but there might be some bugs or wrong / unimplemented functions.<br>
 The project is done in STM32 Cube IDE and uses ST's HAL Library.<br>
 Part of the configuration is done in the .ioc file (CubeMX configuration).<br>
 
-The unilink line is handled using the SPI peripheral with interrupts.<br> 
-The current state of the firmare handles almost all the unilink protocol used in the ICS.<br>
-It also uses the USB OTG function. The CDs are stored as CD01 ... CD06 folders in the USB drive, must use FAT32.<br>
-It automatically scans these folders and its contents, and makes a listing for the ICS.<br>
-It's able to change tracks, also to tell the ICS when the selected disc is not present.<br>
-Now it can decode MP3 and send the audio to a I2S DAC (I used a PCM5102A).<br>
+Features:
 
-It's currently working pretty well, but there might be some bugs or wrongly unimplemented functions.<br> 
+ - Unilink is handled using the SPI peripheral with interrupts. 
+ - Handles most of the unilink protocol used in the ICS.
+ - Uses the USB OTG function and it's able to play MP3 files from a USB drive.
+   - Must be FAT32-formatted.
+   - Songs must be stored inside CD01 ... CD06 folders.
+   - Automatically scans these folders and its contents, and makes a listing for the ICS.
+   - Tested up to 320Kbps without issues.
+ - It's able to change tracks, also to tell the ICS when the selected disc is not present and return to the previous disc.
+ - Can send the decoded audio to a I2S DAC (I used a PCM5102A). 
 
 <a id="compiling"></a>
 ### Compiling
