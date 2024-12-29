@@ -179,9 +179,8 @@ typedef struct {
     volatile uint16_t flags;
     struct{
       unsigned             system_off   :1;   // Stores turn off flag after very long timeout, assuming the car is off
-      unsigned             logRx        :1;   // Indicates rx buffer ready for logging
-      unsigned             logTx        :1;   // Indicates tx buffer ready for logging
-      unsigned             logBreak     :1;   // Indicates tx buffer was a made by a slave break
+      unsigned             logReady     :1;   // Indicates buffer ready for loggingg
+      unsigned             logBreak     :1;   // Indicates tx frame was a caused by a slave break
       unsigned             play         :1;   // Stores play status from master
       unsigned             powered_on   :1;   // Stores play status from master when receiving power command
       unsigned             trackChanged :1;   // Flag, set if disc/track needs to be changed
@@ -203,6 +202,7 @@ typedef struct {
 #define _BREAK_QUEUE_SZ_             16
 typedef struct{
   uint8_t                   break_counter;    // For rate limiter on self-generated messages
+  uint8_t                   break_str;        // Only for passive mode, indicates we sent some break messages and we need to push a new line
   volatile uint8_t          dataTime;         // For measuring data high/low states
   volatile uint16_t         lost;             // Counter for discarded slavebreaks if the queue was full
   volatile uint8_t          pending;          // Counter of slavebreaks pending to be send
@@ -211,7 +211,7 @@ typedef struct{
   uint8_t                   data[_BREAK_QUEUE_SZ_][parity2_L+3]; // tx buffer queue data. Byte 16 is tx size
   volatile uint8_t          lastAutoCmd;      // last self-generated break command (when no requested from master)
   volatile breakMsgState_t  msg_state;        // status for msg  sending
-  breakState_t              break_state;      // status for generating break condition
+  breakState_t              break_state;      // status for generating break condition, or detecting breaks in passive mode
 }slaveBreak_t;
 
 typedef struct{
