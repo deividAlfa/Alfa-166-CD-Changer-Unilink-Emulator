@@ -150,7 +150,15 @@ typedef enum {
   addr_reset         = 0x30,
 }unilinkAddress_t;
 
-
+typedef enum{             // For magazine cmd2
+  mag_empty =0,
+  mag_cd1 = 16,
+  mag_cd2 = 32,
+  mag_cd3 = 64,
+  mag_cd4 = 128,
+  mag_cd5 = 1,
+  mag_cd6 = 2,
+}mag_cdtag_t;
 
 typedef struct {
   volatile uint8_t          status;           // Stores unilink status
@@ -169,9 +177,9 @@ typedef struct {
   volatile uint8_t          rxSize;           // Stores expected rx packet size
   volatile uint8_t          txSize;           // Stores expected tx packet size
   volatile uint8_t          logSize;
-  volatile uint8_t          rxData[parity2_L+1];  // Stores received packet
-  volatile uint8_t          txData[parity2_L+1];  // Stores packet to be transmitted
-  volatile uint8_t          logData[parity2_L+1]; // Stores log packet
+  volatile uint8_t          rxData[parity2_L+2];  // Stores received packet, reserve 16 bytes
+  volatile uint8_t          txData[parity2_L+2];  // Stores packet to be transmitted
+  volatile uint8_t          logData[parity2_L+2]; // Stores packet for logger
   volatile uint16_t         millis;           // millisecond timer, for generating the playback time
   volatile uint16_t         timeout;          // Timeout counter for detecting bus stall
   volatile uint16_t         statusTimer;      // Stores unilink status timer
@@ -185,6 +193,7 @@ typedef struct {
       unsigned             powered_on   :1;   // Stores play status from master when receiving power command
       unsigned             trackChanged :1;   // Flag, set if disc/track needs to be changed
       unsigned             mag_changed  :1;   // Flag, set if usb was changed
+      unsigned             usb_ok       :1;	  // Set when files were found in the drive
       unsigned             received     :1;   // Flag, set when packet received
       unsigned             bad_checksum :1;   // Flag, bad packet received, force byte timeout to clean clocks
       unsigned             appoint      :1;   // Flag, set if we did appoint
@@ -199,7 +208,7 @@ typedef struct {
 }unilink_t;
 
 
-#define _BREAK_QUEUE_SZ_             16
+#define _BREAK_QUEUE_SZ_             16				// Queue size. Increase if getting buffer full errors in the log.
 typedef struct{
   uint8_t                   break_counter;    // For rate limiter on self-generated messages
   uint8_t                   break_str;        // Only for passive mode, indicates we sent some break messages and we need to push a new line
@@ -208,7 +217,7 @@ typedef struct{
   volatile uint8_t          pending;          // Counter of slavebreaks pending to be send
   volatile uint8_t          in;               // Input buffer position
   volatile uint8_t          out;              // Sending buffer position
-  uint8_t                   data[_BREAK_QUEUE_SZ_][parity2_L+3]; // tx buffer queue data. Byte 16 is tx size
+  uint8_t                   data[_BREAK_QUEUE_SZ_][parity2_L+3]; // tx buffer queue data. 17 bytes. Bytes 0-15 for cmd, byte 16 for tx size
   volatile uint8_t          lastAutoCmd;      // last self-generated break command (when no requested from master)
   volatile breakMsgState_t  msg_state;        // status for msg  sending
   breakState_t              break_state;      // status for generating break condition, or detecting breaks in passive mode
@@ -230,15 +239,6 @@ typedef struct{
     };
   };
 }magazine_t;
-
-typedef enum{             // For magazine cmd2
-  mag_cd1 = 16,
-  mag_cd2 = 32,
-  mag_cd3 = 64,
-  mag_cd4 = 128,
-  mag_cd5 = 1,
-  mag_cd6 = 2,
-}mag_cdtag_t;
 
 typedef struct{                               // Local variables for cd data
   volatile bool     inserted;
@@ -272,13 +272,14 @@ extern cdinfo_t     cd_data[_DISCS_];
 #define   msg_anyoneResp_alt   { addr_master,  unilink.ownAddr, cmd_anyoneResp, 0x11, 0x15, 0xA8, 0x17, 0x60 }        // Another ID, not used
 
 
-void unilink_init(SPI_HandleTypeDef* SPI, TIM_HandleTypeDef* tim);
-void unilink_handle(void);
-void unilink_update_magazine(void);
-void unilink_tick(void);
-void unilink_callback(void);
-void unilink_byte_timeout(void);
-void unilink_reset_playback_time(void);
+void unilink_init(SPI_HandleTypeDef* SPI, TIM_HandleTypeDef* tim);    // Inits unilink and stores SPI and timer handlers
+void unilink_handle(void);                                            // Main loop, call as often as possible from main
+void unilink_update_magazine(void);                                   // Called by files.c if the USB drive changes, to update the magazine contents based on the new file structure.
+void unilink_clear_discs(void);
+void unilink_tick(void);                                              // Called by sysTick every 1ms, handles different timings
+void unilink_callback(void);                                          // Called by SPI peripheral interrupt
+void unilink_byte_timeout(void);                                      // Called by the byte timeout timer
+void unilink_reset_playback_time(void);                               // Reset playback time reported to the ICS. Used by i2sAudio.c
 
 
 #endif

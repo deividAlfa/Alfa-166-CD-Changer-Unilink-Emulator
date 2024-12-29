@@ -50,6 +50,7 @@ void handleFS(void){
         systemStatus.driveStatus=drive_error;           //Failure on mount
     }
     else{
+      iprintf("SYSTEM: Volume mounted\r\n");
       for(uint8_t i=0;i<10;i++){
         res = f_chdir("/");
         if(res==FR_OK) break;
@@ -59,12 +60,11 @@ void handleFS(void){
          systemStatus.driveStatus=drive_error;           //Failure on mount
       }
       else{
-        iprintf("SYSTEM: Drive mounted\r\n");
+        iprintf("SYSTEM: Opened root folder\r\n");
         systemStatus.driveStatus=drive_mounted;
       }
     }
   }
-#ifdef AUDIO_SUPPORT
   if(systemStatus.driveStatus==drive_mounted){
     systemStatus.driveStatus = drive_ready;
 #ifdef USB_LOG
@@ -73,6 +73,7 @@ void handleFS(void){
 #ifdef AUDIO_SUPPORT
     systemStatus.fileStatus = file_none;
     scanFS();
+    unilink_clear_discs();
     for(uint8_t i=0;i<FOLDERS;i++){                       // Transfer file count to cd info (for unilink)
       if(systemStatus.fileCount[i]){
         cd_data[i].tracks=systemStatus.fileCount[i];
@@ -80,48 +81,23 @@ void handleFS(void){
         cd_data[i].secs=59;
         cd_data[i].inserted=1;
       }
-      else{
-        cd_data[i].inserted=0;
-        cd_data[i].tracks=99;
-        cd_data[i].mins=0;
-        cd_data[i].secs=0;
-      }
     }
     unilink_update_magazine();
-  }
 #endif
+  }
 
   if((systemStatus.driveStatus==drive_error) || (systemStatus.driveStatus==drive_removed)){ // if drive removed or error
+    if(systemStatus.driveStatus==drive_error)
+      iprintf("SYSTEM: Drive error!\r\n");
+
     iprintf("SYSTEM: Removing mounting point\r\n");
     f_mount(0, "", 1);                              // remove mount point
-    for(uint8_t i=0;i<FOLDERS;i++){                 // Clear cds
-      cd_data[i].inserted=0;
-      cd_data[i].tracks=99;
-      cd_data[i].mins=0;
-      cd_data[i].secs=0;
-    }
-    unilink_update_magazine();
-
-    if(systemStatus.driveStatus==drive_removed){
-      systemStatus.driveStatus=drive_nodrive;
-    }
-    else{
-      systemStatus.driveStatus=drive_unmounted;
-    }
+    systemStatus.driveStatus=drive_removed;
 
 #ifdef AUDIO_SUPPORT
     AudioStop();
-    mag_data.cmd2=0;
-    mag_data.CD1_present=1;                               // Set only cd 1 ("aux" mode)
-    cd_data[0].tracks=1;
-    cd_data[0].mins=80;
-    cd_data[0].secs=0;
-    for(uint8_t i=1;i<6;i++){
-      cd_data[i].tracks=99;
-      cd_data[i].mins=0;
-      cd_data[i].secs=0;
-    }
-    unilink.mag_changed=1;                            // set flag to update
+    unilink_clear_discs();
+    unilink_update_magazine();
 #endif
   }
 }
