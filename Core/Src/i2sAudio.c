@@ -15,17 +15,13 @@
 system_t systemStatus;
 #endif
 
-#ifdef AUDIO_SUPPORT
+#if defined AUDIO_SUPPORT
 
 static I2S_HandleTypeDef *i2sHandle;
-extern FIL USBHFile;
-extern FATFS USBHFatFS;
 extern DMA_HandleTypeDef hdma_memtomem_dma2_stream0;
 
 void initAudio(I2S_HandleTypeDef *hi2s){
   i2sHandle = hi2s;
-  systemStatus.file = &USBHFile;
-  systemStatus.fat = &USBHFatFS;
 }
 
 void handleAudio(void){

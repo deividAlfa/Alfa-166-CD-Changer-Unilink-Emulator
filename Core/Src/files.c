@@ -20,13 +20,18 @@ DIR dir;         /* Directory object */
 FILINFO fil;    /* File information */
 DWORD clmt[32];
 
-extern system_t systemStatus;
 char fileList[MAXFILES][13];
 const char *filetypes[FILETYPES] = { "*.MP3", "*.WAV" };                                    // Files we are interested in
 const char *folders[FOLDERS] = { "/CD01", "/CD02", "/CD03", "/CD04", "/CD05", "/CD06" };    // Folder names
 #endif
 
 #if defined AUDIO_SUPPORT || defined USB_LOG
+extern FIL USBHFile;
+extern FATFS USBHFatFS;
+void initFS(void){
+  systemStatus.file = &USBHFile;
+  systemStatus.fat = &USBHFatFS;
+}
 
 void removeDrive(void){
   f_mount(0, "", 1);
