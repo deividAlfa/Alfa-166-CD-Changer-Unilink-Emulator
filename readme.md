@@ -31,10 +31,10 @@ It's currently working pretty well, but there might be some bugs or wrong / unim
 The project is done in STM32 Cube IDE and uses ST's HAL Library.<br>
 Part of the configuration is done in the .ioc file (CubeMX configuration).<br>
 
-Features:
+### Features
 
  - Unilink is handled using the SPI peripheral with interrupts. 
- - Handles most of the unilink protocol used in the ICS.
+ - Handles most of the Unilink protocol used in the ICS.
  - Uses the USB OTG function and it's able to play MP3 files from a USB drive.
    - Must be FAT32-formatted.
    - Songs must be stored inside CD01 ... CD06 folders.
@@ -43,15 +43,19 @@ Features:
  - It's able to change tracks, also to tell the ICS when the selected disc is not present and return to the previous disc.
  - Can send the decoded audio to a I2S DAC (I used a PCM5102A). 
 
-Issues: 
+### Issues 
 
-So far there's only one noticeable issue!<br>
-The ICS mutes the audio automaticaly when changing the disc (Doesn't happen when changing tracks).<br>
-For some reason, it sometimes takes up to 30 seconds to unmute, although it clearly shows playing.<br>
-Maybe it expects a slower CD change, as we do it instantly, or we're sending something in the wrong order, or too fast.<br>
-A workaround is to change the track after changing the CD, it will unmute and keep working normally.<br>
+The ICS mutes the audio automatically when changing the disc (Doesn't happen when changing tracks).<br>
+For some reason, sometimes it takes up to 30 seconds to unmute, although it clearly shows playing.<br>
+Maybe it expects a slower CD change, as we do it instantly, or we are sending something in the wrong order or too fast.<br>
+A workaround is to change the track after changing the CD, it will unmute and start working normally.<br>
 
+The PCM5102A outputs 2Vrms, which is too much for the ICS input and will cause distortion.<br>
+To fix this, you need to halve the amplitude and buffer the signal.<br>
+Driving the audio input directly with the resistor divider will lead to a very poor sound quality!<br>
+Check the circuit below the PCM5102A connections.<br>
 <br>
+
 <a id="compiling"></a>
 ### Compiling
 
@@ -61,6 +65,7 @@ To compile:<br>
 - Open STM32 Cube IDE, import existing project and select the folder where the code is.
 
 It should recognize it and be ready for compiling or modifying for your own needs.<br>
+The settings are placed in `config.h`.<br>
   
  
 <a id="working"></a>
@@ -71,21 +76,21 @@ It should recognize it and be ready for compiling or modifying for your own need
   - AUDIO_SUPPORT - Enable USB handling and MP3 decoding, fully integrated into Unilink.
   - BT_SUPPORT - Adds support for controlling a bluetooth module.
   
-  - Alternatively, you can use it as Aux-in enabler, so you can connect any audio source into the CD input.
-    For this, disable PASSIVE_MODE, AUDIO_SUPPORT and BT_SUPPORT (Add ´//´ before each ´#define´).
-    Connect power and unilink signals, this will be enough to keep the ICS happy.
+  - Alternatively, you can use it as Aux-in enabler, so you can connect any audio source into the CD input.<br>
+    For this, disable PASSIVE_MODE, AUDIO_SUPPORT and BT_SUPPORT (Add `//` before each `#define`).<br>
+    Connect power and unilink signals, this will be enough to keep the ICS happy.<br>
 
 <a id="debugging"></a>
 ### Debugging
 
-The firmware has different levels of debugging the Unilink data, see `config.h`.
   - UNILINK_LOG_ENABLE - Prints Unilink frames.
   - UNILINK_LOG_DETAILED - Decodes and prints what each frame means.
   - UNILINK_LOG_TIMESTAMP - Adds timestamps to each frame.  
   
   - UART_PRINT - Enables serial port logging to PA9 pin, 1Mbit baudrate.
-  - SWO_PRINT - Enables SWO pin logging. Connect the ST-Link to the STM32 (SWC=PA14 SWD=PA13 SWO=PB3).
-                Open Printf SWO viever in ST-Link utility, set core clock to 96000000Hz.
+  - SWO_PRINT - Enables SWO pin logging.<br>
+    Connect the ST-Link to the STM32 (SWC=PA14 SWD=PA13 SWO=PB3).<br>
+    Open Printf SWO viever in ST-Link utility, set core clock to 96000000Hz.<br>
   - USB_LOG - Enables USB logging, creating a file `log.txt`.
        
 ####  UNILINK_LOG_DETAILED disabled: 
@@ -128,7 +133,7 @@ It uses VBA to parse the data, so you need to enable macros. The function is cal
 
  
 <a id="connections"></a>
-## Connections
+### Connections
 
 The ICS connection is as follows:
 <br>
@@ -143,8 +148,8 @@ The ICS connection is as follows:
     
   - Unilink interface (Unilink Reset and Enable signals are not used)
     - Power: `C2-8`, permanent 12V. You'll need a 5V voltage regulator for the STM32 board.
-    - BUS_ON: `C2-7`, makes some pulses at power-on to wake up the slave. It's used to turn a mosfet on and power our device on.
-      Then the stm32 will maintain the power win PWR_ON pin, and will shutdown after 10 seconds with no communication with the ICS.
+    - BUS_ON: `C2-7`, makes some pulses at power-on to wake up the slave. It's used to turn a mosfet on and power our device on.<br>
+      Then the stm32 will maintain the power win PWR_ON pin, and will shutdown after 10 seconds with no communication with the ICS.<br>
     - Ground: `C2-9`, it's  missing in the ICS pinout, but fully correct. Don't use this ground for audio.
     - Data: `C2-10`, connect to STM32 PA6 (UNILINK_DATA).
     - Clk: `C2-11`, connect to STM32 PA5(UNILINK_CLOCK).
@@ -161,12 +166,21 @@ The ICS connection is as follows:
   ![IMAGE](/DOCS/stm32_pinout.png)
 
 ### Power switch circuit
+
+ These are generic components, any P-channel mosfet capable of driving 500mA and 30V will work, same for the npn transistor or the DC/DC module.
   
   ![IMAGE](/DOCS/power.png)
   
 ### PCM5102A connection
  
   ![IMAGE](/DOCS/PCM5102A.jpg)
+  
+### PCM5102A output level conversion (For each channel)
+
+ Most operational amplifiers with low noise will work here, make sure the output can swing between 0.5 and 3.5V with a 5V supply voltage or it will cause audio clipping.<br>
+ Normally they have more problems getting the output close to V+ than to Gnd, that's why the input is biased a bit lower than VCC/2.<br>
+ 
+  ![IMAGE](/DOCS/amp.png)
 
 <br>
 Some STM32F411 boards have an issue with USB OTG not working.<br>
