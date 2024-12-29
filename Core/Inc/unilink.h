@@ -169,8 +169,8 @@ typedef struct {
   volatile uint8_t          rxSize;           // Stores expected rx packet size
   volatile uint8_t          txSize;           // Stores expected tx packet size
   volatile uint8_t          logSize;
-  volatile uint8_t          rxData[parity2_L+1];       // Stores received packet
-  volatile uint8_t          txData[parity2_L  +1];       // Stores packet to be transmitted
+  volatile uint8_t          rxData[parity2_L+1];  // Stores received packet
+  volatile uint8_t          txData[parity2_L+1];  // Stores packet to be transmitted
   volatile uint8_t          logData[parity2_L+1]; // Stores log packet
   volatile uint16_t         millis;           // millisecond timer, for generating the playback time
   volatile uint16_t         timeout;          // Timeout counter for detecting bus stall

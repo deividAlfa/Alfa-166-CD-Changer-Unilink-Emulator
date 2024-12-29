@@ -98,9 +98,9 @@ void unilink_handle(void){
   if(unilink.received){
     unilink.received=0;                               // do a parity check of received packet and proceed if OK
     if(unilink_checksum()){                           // If checksum ok...
-      #ifndef PASSIVE_MODE
+#ifndef PASSIVE_MODE
       unilink_parse();
-      #endif
+#endif
     }
     else{
       unilink.bad_checksum=1;                           // Bad checksum, probably skipped a clock, resync by ignoring further data until master stops sending clocks and triggers a byte timeout.
