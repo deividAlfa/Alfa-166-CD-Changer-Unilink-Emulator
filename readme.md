@@ -33,10 +33,10 @@ It automatically scans these folders and its contents, and makes a listing for t
 It's able to change tracks, also to tell the ICS when the selected disc is not present.<br>
 Now it can decode MP3 and send the audio to a I2S DAC (I used a PCM5102A).<br>
 
-It's currently workign but pretty beta, there might be some bugs or wrongly unimplemented functions.<br> 
+It's currently working pretty well, but there might be some bugs or wrongly unimplemented functions.<br> 
 
 <a id="compiling"></a>
-## Compiling
+### Compiling
 
 To compile:<br>
 - Download STM32 Cube IDE. This project was made with v1.12.1, so better use that.
@@ -44,12 +44,22 @@ To compile:<br>
 - Open STM32 Cube IDE, import existing project and select the folder where the code is.
 
 It should recognize it and be ready for compiling or modifying for your own needs.<br>
-Check "unilink.h" and "unilink.c". 
   
  
+<a id="working"></a>
+### Working options
+
+  - PASSIVE_MODE  - Will disable the slave interface and set the device in sniffer mode.<br>
+    In this mode it can output the dialog between the ICS and the CD changer.
+  - AUDIO_SUPPORT - Enable USB handling and MP3 decoding, fully integrated into Unilink.
+  - BT_SUPPORT - Adds support for controlling a bluetooth module.
   
+  - Alternatively, you can use it as Aux-in enabler, so you can connect any audio source into the CD input.
+    For this, disable PASSIVE_MODE, AUDIO_SUPPORT and BT_SUPPORT (Add ´//´ before each ´#define´).
+    Connect power and unilink signals, this will be enough to keep the ICS happy.
+
 <a id="debugging"></a>
-## Debugging
+### Debugging
 
 The firmware has different levels of debugging the Unilink data, see `config.h`.
   - UNILINK_LOG_ENABLE - Prints Unilink frames.
@@ -60,19 +70,7 @@ The firmware has different levels of debugging the Unilink data, see `config.h`.
   - SWO_PRINT - Enables SWO pin logging. Connect the ST-Link to the STM32 (SWC=PA14 SWD=PA13 SWO=PB3).
                 Open Printf SWO viever in ST-Link utility, set core clock to 96000000Hz.
   - USB_LOG - Enables USB logging, creating a file `log.txt`.
-  
-Working options:
-  - PASSIVE_MODE  - Will disable the slave interface and set the device in sniffer mode.<br>
-    In this mode it can output the dialog between the ICS and the CD changer.
-  - AUDIO_SUPPORT - Enable USB handling and MP3 decoding, fully integrated into Unilink.
-  - BT_SUPPORT - Adds support for controlling a bluetooth module.
-  
-  - Alternatively, you can use it as Aux-in enabler, so you can connect any audio source into the CD input.
-    For this, disable PASSIVE_MODE, AUDIO_SUPPORT and BT_SUPPORT (Add ´//´ before each ´#define´).
-    Connect power and unilink signals, this will be enough to keep the ICS happy.
-    
-Example log outputs:<br>
- 
+       
 ####  UNILINK_LOG_DETAILED disabled: 
     31 10 01 13 55
     10 31 97 01 D9 20 79 46 10 C8
@@ -81,11 +79,11 @@ Example log outputs:<br>
     31 11 B0 12 04 00 00 00 00 04  
     
 ####  UNILINK_LOG_DETAILED enabled: 
-    [31 10 01 13][55]                                    MASTER REQUEST: Slave poll
-    [10 31 97 01][D9][20 79 46 10][C8]                   DISC INFO: Disc:1 Tracks:20 79m:46s
-    [31 10 01 13][55]                                    MASTER REQUEST: Slave poll
-    [10 31 00 00][41]                                    STATUS: Playing
-    [31 11 B0 12][04][00 00 00 00][04]                   CHANGE TO: Disc:2 Track:00 
+    << [31 10 01 13][55]                                    MASTER REQUEST: Slave poll
+      #[10 31 97 01][D9][20 79 46 10][C8]                   DISC INFO: Disc:1 Tracks:20 79m:46s
+    << [31 10 01 13][55]                                    MASTER REQUEST: Slave poll
+      #[10 31 00 00][41]                                    STATUS: Playing
+    << [31 11 B0 12][04][00 00 00 00][04]                   CHANGE TO: Disc:2 Track:00 
     
 <br><br>
 There's an Excel sheet full of captured data in [DOCS](/DOCS) folder: [ICS logs.xlsm](/DOCS/ICS%20logs.xlsm).<br>
