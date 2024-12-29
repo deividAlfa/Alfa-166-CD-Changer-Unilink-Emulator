@@ -36,6 +36,7 @@ typedef enum{
   file_wav                // .WAV
 }filetype_t;
 
+void initFS(void);
 void handleFS(void);
 uint8_t find_mp3 (char* path);
 void scanFS(void);

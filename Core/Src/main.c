@@ -155,6 +155,9 @@ int main(void)
   debug_heap();
 #endif
 
+#if defined AUDIO_SUPPORT || defined USB_LOG
+  initFS();
+#endif
 
   unilink_init(&hspi1, &htim10);
 #ifdef AUDIO_SUPPORT
