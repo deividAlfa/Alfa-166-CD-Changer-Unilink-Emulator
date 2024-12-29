@@ -12,6 +12,7 @@
 #include "fatfs.h"
 #include "spiritMP3Dec.h"
 #include "i2sAudio.h"
+#include "serial.h"
 #endif
 
 
@@ -66,6 +67,10 @@ void handleFS(void){
 #ifdef AUDIO_SUPPORT
   if(systemStatus.driveStatus==drive_mounted){
     systemStatus.driveStatus = drive_ready;
+#ifdef USB_LOG
+    reset_usb_log();
+#endif
+#ifdef AUDIO_SUPPORT
     systemStatus.fileStatus = file_none;
     scanFS();
     for(uint8_t i=0;i<FOLDERS;i++){                       // Transfer file count to cd info (for unilink)

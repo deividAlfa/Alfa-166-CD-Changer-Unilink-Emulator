@@ -20,7 +20,7 @@
 uint8_t buf[2][BFSZ];
 uint16_t cnt;
 uint8_t curr_bf;
-bool opened;
+FRESULT log_file_status = FR_NO_FILE;
 volatile uint8_t wr_log;
 volatile uint8_t wr_log_bf;
 volatile uint16_t wr_log_cnt;
@@ -102,19 +102,36 @@ void handle_log(void){
   }
 }
 
+void reset_usb_log(void){   // To reset flag, called externally if the drive is inserted
+  log_file_status=FR_NO_FILE;
+}
+
 void write_log(void){
-  size_t wr;
-  last_log_time = HAL_GetTick();
-
-  if(systemStatus.driveStatus!=drive_ready) return;
-
-  res = f_chdir("/");
-  if(!opened){
-    opened=1;
-    res = f_open(&logfile, "/log.txt", FA_CREATE_ALWAYS | FA_WRITE | FA_READ);
+  size_t written;
+  if(log_file_status==FR_DISK_ERR){
+    return;
   }
-  if(res!=FR_OK) systemStatus.driveStatus=drive_error;
-  res = f_write(&logfile, buf[wr_log_bf], wr_log_cnt, &wr);
-  if(res!=FR_OK || wr!=wr_log_cnt) systemStatus.driveStatus=drive_error;
+  else if(systemStatus.driveStatus!=drive_ready){
+    log_file_status=FR_DISK_ERR;
+    return;
+  }
+
+  last_log_time = HAL_GetTick();
+  res = f_chdir("/");
+  if(res!=FR_OK){ log_file_status=FR_DISK_ERR; return;  }
+
+  if(log_file_status!=FR_OK){
+    res = f_open(&logfile, "/log.txt", FA_CREATE_ALWAYS | FA_WRITE | FA_READ);
+    if(res!=FR_OK){ log_file_status=FR_DISK_ERR; return;  }
+    else{
+      putString("USB Log: Created log.txt\r\n");
+      log_file_status=FR_OK;
+    }
+  }
+  res = f_write(&logfile, buf[wr_log_bf], wr_log_cnt, &written);
+  if(res!=FR_OK || written!=wr_log_cnt){ log_file_status=FR_DISK_ERR; }
+  if(log_file_status==FR_DISK_ERR){
+    putString("USB Log: Couldn't write to the drive, disabling...\r\n");
+  }
 }
 #endif
