@@ -43,6 +43,15 @@ Features:
  - It's able to change tracks, also to tell the ICS when the selected disc is not present and return to the previous disc.
  - Can send the decoded audio to a I2S DAC (I used a PCM5102A). 
 
+Issues: 
+
+So far there's only one noticeable issue!<br>
+The ICS mutes the audio automaticaly when changing the disc (Doesn't happen when changing tracks).<br>
+For some reason, it sometimes takes up to 30 seconds to unmute, although it clearly shows playing.<br>
+Maybe it expects a slower CD change, as we do it instantly, or we're sending something in the wrong order, or too fast.<br>
+A workaround is to change the track after changing the CD, it will unmute and keep working normally.<br>
+
+<br>
 <a id="compiling"></a>
 ### Compiling
 
@@ -81,18 +90,34 @@ The firmware has different levels of debugging the Unilink data, see `config.h`.
        
 ####  UNILINK_LOG_DETAILED disabled: 
     31 10 01 13 55
-    10 31 97 01 D9 20 79 46 10 C8
+    10 31 97 01 D9 79 99 59 10 54
     31 10 01 13 55
+    70 31 90 00 31 02 00 41 1A 8E
+    31 10 84 95 5A 10 00 00 00 6A
+    10 31 95 B0 86 00 00 00 06 8C
+    31 10 01 12 54
     10 31 00 00 41
-    31 11 B0 12 04 00 00 00 00 04  
     
 ####  UNILINK_LOG_DETAILED enabled: 
     << [31 10 01 13][55]                                    MASTER REQUEST: Slave poll
-      #[10 31 97 01][D9][20 79 46 10][C8]                   DISC INFO: Disc:1 Tracks:20 79m:46s
+      #[10 31 97 01][D9][79 99 59 10][54]                   DISC INFO: Disc:1 Tracks:79 99m:59s
     << [31 10 01 13][55]                                    MASTER REQUEST: Slave poll
+      #[70 31 90 00][31][02 00 41 1A][8E]                   TIME: Disc:1 Track:02 00:41
+    << [31 10 84 95][5A][10 00 00 00][6A]                   REQUEST FIELD: MAGAZINE INFO
+      #[10 31 95 B0][86][00 00 00 06][8C]                   MAGAZINE INFO: CD1:Y CD2:Y CD3:N CD4:Y CD5:N CD6:N
+    << [31 10 01 12][54]                                    MASTER REQUEST: Time poll
       #[10 31 00 00][41]                                    STATUS: Playing
-    << [31 11 B0 12][04][00 00 00 00][04]                   CHANGE TO: Disc:2 Track:00 
-    
+
+####  UNILINK_LOG_TIMESTAMPS enabled:
+    00:02:04.957    << [31 10 01 13][55]                                    MASTER REQUEST: Slave poll
+    00:02:04.970      #[10 31 97 01][D9][79 99 59 10][54]                   DISC INFO: Disc:1 Tracks:79 99m:59s
+    00:02:05.087    << [31 10 01 13][55]                                    MASTER REQUEST: Slave poll
+    00:02:05.100      #[70 31 90 00][31][02 00 41 1A][8E]                   TIME: Disc:1 Track:02 00:41
+    00:02:05.166    << [31 10 84 95][5A][10 00 00 00][6A]                   REQUEST FIELD: MAGAZINE INFO
+    00:02:05.181      #[10 31 95 B0][86][00 00 00 06][8C]                   MAGAZINE INFO: CD1:Y CD2:Y CD3:N CD4:Y CD5:N CD6:N
+    00:02:05.206    << [31 10 01 12][54]                                    MASTER REQUEST: Time poll
+    00:02:05.218      #[10 31 00 00][41]                                    STATUS: Playing
+         
 <br><br>
 There's an Excel sheet full of captured data in [DOCS](/DOCS) folder: [ICS logs.xlsm](/DOCS/ICS%20logs.xlsm).<br>
 It uses VBA to parse the data, so you need to enable macros. The function is called `ParseUnilink()`.<br>
@@ -105,7 +130,9 @@ It uses VBA to parse the data, so you need to enable macros. The function is cal
 <a id="connections"></a>
 ## Connections
 
-The ICS connection is as follows:<br>
+The ICS connection is as follows:
+<br>
+
 ![IMAGE](/DOCS/ICS_pinout.jpg)
 ![IMAGE](/DOCS/ICS_pinout2.jpg)
   
@@ -125,18 +152,23 @@ The ICS connection is as follows:<br>
 
 
 
-  - Basic connection:
+### Basic connection
+  
   ![IMAGE](/DOCS/sch.png)
 
-  - Stm32 pinout:
+### Stm32 pinout
+  
   ![IMAGE](/DOCS/stm32_pinout.png)
 
-  - Power switch circuit:
+### Power switch circuit
+  
   ![IMAGE](/DOCS/power.png)
   
-  - PCM5102A connection:
+### PCM5102A connection
+ 
   ![IMAGE](/DOCS/PCM5102A.jpg)
 
+<br>
 Some STM32F411 boards have an issue with USB OTG not working.<br>
 This is caused by diode, not allowing the power to go from the board to the USB.<br>
 The diode was removed on later revisions of the board. The fix is easy, just replace the diode with a jumper:
