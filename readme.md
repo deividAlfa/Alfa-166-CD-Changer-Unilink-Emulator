@@ -67,7 +67,11 @@ Working options:
   - AUDIO_SUPPORT - Enable USB handling and MP3 decoding, fully integrated into Unilink.
   - BT_SUPPORT - Adds support for controlling a bluetooth module.
   
- Example log outputs:<br>
+  - Alternatively, you can use it as Aux-in enabler, so you can connect any audio source into the CD input.
+    For this, disable PASSIVE_MODE, AUDIO_SUPPORT and BT_SUPPORT (Add ´//´ before each ´#define´).
+    Connect power and unilink signals, this will be enough to keep the ICS happy.
+    
+Example log outputs:<br>
  
 ####  UNILINK_LOG_DETAILED disabled: 
     31 10 01 13 55
@@ -99,25 +103,31 @@ The ICS connection is as follows:<br>
 ![IMAGE](/DOCS/ICS_pinout.jpg)
 ![IMAGE](/DOCS/ICS_pinout2.jpg)
   
-  - Audio:
-    - Audio gnd: `C3-18` - Don't use other grounds as it might induce noise in the audio.
+  - Audio
+    - Audio gnd: `C3-18` - Don't use other grounds as it might induce noise.
     - Left input: `C3-19`
     - Right input: `C3-20`
     
-  - Unilink interface:
+  - Unilink interface (Unilink Reset and Enable signals are not used)
     - Power: `C2-8`, permanent 12V. You'll need a 5V voltage regulator for the STM32 board.
-    - BUS_ON: `C2-7`, makes some pulses at power-on to wake up the slave. This needs to be connected to a mosfet to power our device on. (TODO: Complete this.)
-    - Ground: `C2-9`, it's  missing in the picture but fully correct. Don't use this ground for audio.
-    - Data: `C2-10`, connect to STM32 PA6.
-    - Clk: `C2-11`, connect to STM32 PA5.
+    - BUS_ON: `C2-7`, makes some pulses at power-on to wake up the slave. It's used to turn a mosfet on and power our device on.
+      Then the stm32 will maintain the power win PWR_ON pin, and will shutdown after 10 seconds with no communication with the ICS.
+    - Ground: `C2-9`, it's  missing in the ICS pinout, but fully correct. Don't use this ground for audio.
+    - Data: `C2-10`, connect to STM32 PA6 (UNILINK_DATA).
+    - Clk: `C2-11`, connect to STM32 PA5(UNILINK_CLOCK).
     
-Only Data and Clock are used. Reset and Enable are not needed.
 
+
+
+  - Basic connection:
+  ![IMAGE](/DOCS/sch.png)
 
   - Stm32 pinout:
   ![IMAGE](/DOCS/stm32_pinout.png)
 
-
+  - Power switch circuit:
+  ![IMAGE](/DOCS/power.png)
+  
   - PCM5102A connection:
   ![IMAGE](/DOCS/PCM5102A.jpg)
 
