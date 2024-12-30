@@ -40,8 +40,10 @@ Part of the configuration is done in the .ioc file (CubeMX configuration).<br>
    - Songs must be stored inside CD01 ... CD06 folders.
    - Automatically scans these folders and its contents, and makes a listing for the ICS.
    - Tested up to 320Kbps without issues.
- - It's able to change tracks, also to tell the ICS when the selected disc is not present and return to the previous disc.
- - Can send the decoded audio to a I2S DAC (I used a PCM5102A). 
+ - It's able to change tracks, discs, etc, everything like the original charger.
+ - Repeat / Shuffle / Intro modes are not implemented.
+ - Can send the decoded audio to a I2S DAC.<br>
+ I used a PCM5102A, but better use a UDA1334A as it has lower output signal, see Issues. 
 
 ### Issues 
 
@@ -51,7 +53,8 @@ Maybe it expects a slower CD change, as we do it instantly, or we are sending so
 A workaround is to change the track after changing the CD, it will unmute and start working normally.<br>
 
 The PCM5102A outputs 2Vrms, which is too much for the ICS input and will cause distortion.<br>
-To fix this, you need to halve the amplitude and buffer the signal.<br>
+Use the UDA1334A instead, it's a readily available alternative which should work much better, it outputs 0.9Vrms.<br>
+To fix the PCM5102A level, you need to halve the amplitude and buffer the signal.<br>
 Driving the audio input directly with the resistor divider will lead to a very poor sound quality!<br>
 Check the circuit below the PCM5102A connections.<br>
 <br>
@@ -76,7 +79,7 @@ The settings are placed in `config.h`.<br>
   - AUDIO_SUPPORT - Enable USB handling and MP3 decoding, fully integrated into Unilink.
   - BT_SUPPORT - Adds support for controlling a bluetooth module.
   
-  - Alternatively, you can use it as Aux-in enabler, so you can connect any audio source into the CD input.<br>
+  - Alternatively, it can be used as Aux-in enabler and can connect any audio source into the CD input.<br>
     For this, disable PASSIVE_MODE, AUDIO_SUPPORT and BT_SUPPORT (Add `//` before each `#define`).<br>
     Connect power and unilink signals, this will be enough to keep the ICS happy.<br>
 
@@ -90,7 +93,7 @@ The settings are placed in `config.h`.<br>
   - UART_PRINT - Enables serial port logging to PA9 pin, 1Mbit baudrate.
   - SWO_PRINT - Enables SWO pin logging.<br>
     Connect the ST-Link to the STM32 (SWC=PA14 SWD=PA13 SWO=PB3).<br>
-    Open Printf SWO viever in ST-Link utility, set core clock to 96000000Hz.<br>
+    Open Printf SWO viewer in ST-Link utility, set core clock to 96000000Hz.<br>
   - USB_LOG - Enables USB logging, creating a file `log.txt`.
        
 ####  UNILINK_LOG_DETAILED disabled: 
@@ -171,11 +174,11 @@ The ICS connection is as follows:
   
   ![IMAGE](/DOCS/power.png)
   
-### PCM5102A connection
+### DAC connection (PCM5102A example)
  
   ![IMAGE](/DOCS/PCM5102A.jpg)
   
-### PCM5102A output level conversion (For each channel)
+### PCM5102A output level fix (For each channel)
 
  Most operational amplifiers with low noise will work here, make sure the output can swing between 0.5 and 3.5V with a 5V supply voltage or it will cause audio clipping.<br>
  Normally they have more problems getting the output close to V+ than to Gnd, that's why the input is biased a bit lower than VCC/2.<br>
