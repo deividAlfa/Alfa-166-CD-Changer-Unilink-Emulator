@@ -47,11 +47,6 @@ Part of the configuration is done in the .ioc file (CubeMX configuration).<br>
 
 ### Issues 
 
-The ICS mutes the audio automatically when changing the disc (Doesn't happen when changing tracks).<br>
-For some reason, sometimes it takes up to 30 seconds to unmute, although it clearly shows playing.<br>
-Maybe it expects a slower CD change, as we do it instantly, or we are sending something in the wrong order or too fast.<br>
-A workaround is to change the track after changing the CD, it will unmute and start working normally.<br>
-
 The PCM5102A outputs 2Vrms, which is too much for the ICS input and will cause distortion.<br>
 Use the UDA1334A instead, it's a readily available alternative which should work much better, it outputs 0.9Vrms.<br>
 To fix the PCM5102A level, you need to halve the amplitude and buffer the signal.<br>
