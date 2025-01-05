@@ -58,7 +58,8 @@ Check the circuit below the PCM5102A connections.<br>
 ### Compiling
 
 To compile:<br>
-- Download STM32 Cube IDE. This project was made with v1.12.1, so better use that.
+- Download STM32 Cube IDE. This project was made with v1.12.1, so better use that.<br>
+ST has removed this version from their site, you can get it [here](https://github.com/deividAlfa/stm32_soldering_iron_controller/releases/tag/CubeIDE_v1.12.1).<br>
 - Clone or download the repository.
 - Open STM32 Cube IDE, import existing project and select the folder where the code is.
 
@@ -66,10 +67,10 @@ It should recognize it and be ready for compiling or modifying for your own need
 
   ![IMAGE](/DOCS/build.png)
   
-It can be programmed with any programmers supporting SWD (ST-Link, JFlash, DAP-Link...).<br>
+Use any programmer supporting SWD (ST-Link, J-Link, DAP-Link...).<br>
 You can also using the embedded bootloader (DFU): Download [Cube Programmer](https://www.st.com/en/development-tools/stm32cubeprog.html).<br>
 Hold BOOT0 button down, connect the usb to the computer, release the button when detected.<br>
-Then flash the compiled binary with the tool after compiling, the binaries are in `Release` folder, (.hex, .elf, .bin).<br>
+After compiling, flash the binary with the tool, it'll be located in `Release` folder (.hex, .elf, .bin).<br>
 <br>  
  
 <a id="working"></a>
@@ -77,29 +78,35 @@ Then flash the compiled binary with the tool after compiling, the binaries are i
 
 The settings are placed in `config.h`.<br>
 
-  - PASSIVE_MODE  - Will disable the slave interface and set the device in sniffer mode.<br>
-    In this mode it can output the dialog between the ICS and the CD changer.
-  - AUDIO_SUPPORT - Enable USB handling and MP3 decoding, fully integrated into Unilink.<br>
+  - **PASSIVE_MODE**  - Will disable the slave interface and set the device in sniffer mode.<br>
+    In this mode it can output the dialog between the ICS and the CD changer.<br>
+    
+  - **AUDIO_SUPPORT** - Enable USB handling and MP3 decoding, fully integrated into Unilink.<br>
   Needs a DAC to decode the I2S stream and possibly some signal conditioning.<br>
-  - BT_SUPPORT - Adds support for controlling a bluetooth module.
+  
+  - **BT_SUPPORT** - Adds support for controlling a bluetooth module.
   Ideally this would be used with a module supporting AT commands, but this wasn't my case, so it's very specific.<br>
-  In my case I modified a RRD-305 module and customized both button inputs and LED outputs for my needs.<br>  
-  - Alternatively, it can be used as Aux-in enabler and can connect any audio source into the CD input.<br>
+  In my case I modified a RRD-305 module and customized both button inputs and LED outputs for my needs.<br>
+  
+  - **Alternatively**, it can be used as Aux-in enabler and can connect any audio source into the CD input.<br>
     For this, disable PASSIVE_MODE, AUDIO_SUPPORT and BT_SUPPORT (Add `//` before each `#define`).<br>
     Connect power and unilink signals, this will be enough to keep the ICS happy.<br>
 
 <a id="debugging"></a>
 ### Debugging
 
-  - UNILINK_LOG_ENABLE - Prints Unilink frames.
-  - UNILINK_LOG_DETAILED - Decodes and prints what each frame means.
-  - UNILINK_LOG_TIMESTAMP - Adds timestamps to each frame.  
+  - **UNILINK_LOG_ENABLE** - Prints Unilink frames.<br>
   
-  - UART_PRINT - Enables serial port logging to PA9 pin, 1Mbit baudrate.
-  - SWO_PRINT - Enables SWO pin logging.<br>
+  - **UNILINK_LOG_DETAILED** - Decodes and prints what each frame means.<br>
+  
+  - **UNILINK_LOG_TIMESTAMP** - Adds timestamps to each frame.  <br>
+  
+  - **UART_PRINT** - Enables serial port logging to PA9 pin, 1Mbit baudrate.
+  - **SWO_PRINT** - Enables SWO pin logging.<br>
     Connect the ST-Link to the STM32 (SWC=PA14 SWD=PA13 SWO=PB3).<br>
     Open Printf SWO viewer in ST-Link utility, set core clock to 96000000Hz.<br>
-  - USB_LOG - Enables USB logging, creating a file `log.txt`.
+    
+  - **USB_LOG** - Enables USB logging, creating a file `log.txt`.
        
 ####  UNILINK_LOG_DETAILED disabled: 
     31 10 01 13 55
@@ -156,8 +163,9 @@ The ICS connection is as follows:
     
   - Unilink interface (Unilink Reset and Enable signals are not used)
     - Power: `C2-8`, permanent 12V. You'll need a 5V voltage regulator for the STM32 board.
-    - BUS_ON: `C2-7`, makes some pulses at power-on to wake up the slave. It's used to turn a mosfet on and power our device on.<br>
-      Then the stm32 will maintain the power win PWR_ON pin, and will shutdown after 10 seconds with no communication with the ICS.<br>
+    - BUS_ON: `C2-7`, makes some pulses at power-on to wake up the slave.<br>
+Here it turns a mosfet on, then the stm32 will maintain the power with PWR_ON pin.<br>
+It'll turn it off after 10 seconds with no communication with the ICS, so we don't drain the battery.<br>
     - Ground: `C2-9`, it's  missing in the ICS pinout, but fully correct. Don't use this ground for audio.
     - Data: `C2-10`, connect to STM32 PA6 (UNILINK_DATA).
     - Clk: `C2-11`, connect to STM32 PA5(UNILINK_CLOCK).
