@@ -40,9 +40,9 @@ Part of the configuration is done in the .ioc file (CubeMX configuration).<br>
    - Songs must be stored inside CD01 ... CD06 folders.
    - Automatically scans these folders and its contents, and makes a listing for the ICS.
    - Tested up to 320Kbps without issues.
- - It's able to change tracks, discs, etc, everything like the original charger.
+ - It's able to change tracks, discs, notify empty CD slots, etc, just like the original CD changer.
  - Repeat / Shuffle / Intro modes are not implemented.
- - Can send the decoded audio to a I2S DAC.<br>
+ - Send the decoded audio to a I2S DAC.<br>
  I used a PCM5102A, but better use a UDA1334A as it has lower output signal, see Issues. 
 
 ### Issues 
@@ -63,21 +63,27 @@ To compile:<br>
 - Open STM32 Cube IDE, import existing project and select the folder where the code is.
 
 It should recognize it and be ready for compiling or modifying for your own needs.<br>
-The settings are placed in `config.h`.<br>
 
-It can be programmed with any programmers supporting SWD (ST-Link, JFlash, DAP-Link...),  also using the embedded bootloader (DFU).
-Download [STM32 Cube Programmer](https://www.st.com/en/development-tools/stm32cubeprog.html), hold BOOT0 button and connect the usb to the computer.<br>
-It will detect a new device, flash the compiled binary with the tool (`Release` folder, take any .hex, .elf, .bin).
+  ![IMAGE](/DOCS/build.png)
+  
+It can be programmed with any programmers supporting SWD (ST-Link, JFlash, DAP-Link...).<br>
+You can also using the embedded bootloader (DFU): Download [Cube Programmer](https://www.st.com/en/development-tools/stm32cubeprog.html).<br>
+Hold BOOT0 button down, connect the usb to the computer, release the button when detected.<br>
+Then flash the compiled binary with the tool after compiling, the binaries are in `Release` folder, (.hex, .elf, .bin).<br>
 <br>  
  
 <a id="working"></a>
 ### Working options
 
+The settings are placed in `config.h`.<br>
+
   - PASSIVE_MODE  - Will disable the slave interface and set the device in sniffer mode.<br>
     In this mode it can output the dialog between the ICS and the CD changer.
-  - AUDIO_SUPPORT - Enable USB handling and MP3 decoding, fully integrated into Unilink.
+  - AUDIO_SUPPORT - Enable USB handling and MP3 decoding, fully integrated into Unilink.<br>
+  Needs a DAC to decode the I2S stream and possibly some signal conditioning.<br>
   - BT_SUPPORT - Adds support for controlling a bluetooth module.
-  
+  Ideally this would be used with a module supporting AT commands, but this wasn't my case, so it's very specific.<br>
+  In my case I modified a RRD-305 module and customized both button inputs and LED outputs for my needs.<br>  
   - Alternatively, it can be used as Aux-in enabler and can connect any audio source into the CD input.<br>
     For this, disable PASSIVE_MODE, AUDIO_SUPPORT and BT_SUPPORT (Add `//` before each `#define`).<br>
     Connect power and unilink signals, this will be enough to keep the ICS happy.<br>
