@@ -27,7 +27,7 @@ void unilinkLogUpdate(unilink_SPImode_t mode){
   }
 
   for(uint8_t i=0;i<unilink.logSize;i++){
-    unilink.logData[i]= *s++;
+    unilink.logData[i]= s[i];
   }
 }
 
@@ -179,7 +179,7 @@ void unilinkLog(void){
   unilink.logReady=0;
 
   while(count<(size-1)){
-  #ifdef UNILINK_LOG_DETAILED
+#ifdef UNILINK_LOG_DETAILED
     if(count==0){
       str[i++]='[';
     }
@@ -188,21 +188,20 @@ void unilinkLog(void){
     str[i++]=hex2ascii((unilink.logData[count])&0x0f);
     count++;
 #ifdef UNILINK_LOG_DETAILED
-    if( count<parity1 || (count>(unilink_short-1) && (count<(size-2)))){
+    if( count<parity1 || (count>=unilink_short && count<(size-2) )){
 #else
     if(count<size){
 #endif
         str[i++]=' ';
     }
-    #ifdef UNILINK_LOG_DETAILED
-    if(    (count==parity1) || (size>unilink_short && count==d1) ||         // Print fields between brackets [x]
+#ifdef UNILINK_LOG_DETAILED
+    if( (count==parity1) || (size>unilink_short && count==d1) ||         // Print fields between brackets [x]
         (size==unilink_medium && count==parity2) ||
         (size==unilink_long && count==parity2_L) ){
       str[i++]=']';
       str[i++]='[';
     }
-
-    if(count==(size-1)){
+    else if(count==(size-1)){
       str[i++]=']';
     }
 #endif
