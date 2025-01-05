@@ -141,7 +141,7 @@ The ICS connection is as follows:
 <br>
 
 ![IMAGE](/DOCS/ICS_pinout.jpg)
-![IMAGE](/DOCS/ICS_pinout2.jpg)
+![IMAGE](/DOCS/ICS_pinout2.png)
   
   - Audio
     - Audio gnd: `C3-18` - Don't use other grounds as it might induce noise.
