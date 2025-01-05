@@ -162,7 +162,6 @@ typedef enum{             // For magazine cmd2
 
 typedef struct {
   volatile uint8_t          status;           // Stores unilink status
-           uint8_t          play_cmd_cnt;     // The ICS seems to send play command once at boot, while it shouldn't, so ignore first request
   volatile uint8_t          ownAddr;          // Stores device address
   volatile uint8_t          groupID;          // Stores group ID
   volatile uint8_t          lastAutoStatus;   // Stores last cmd sent by unilink_auto_status

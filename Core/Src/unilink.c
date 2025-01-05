@@ -370,10 +370,9 @@ void unilink_myid_cmd(void) {
   }
   case cmd_play:                                                // 0x20 PLAY
   {
-    if (!unilink.powered_on || ++unilink.play_cmd_cnt < 2) {    // Not powered on, or first request, ignore
+    if (!unilink.powered_on) {                                  // Not powered on, ignore
       break;                                                    // The ICS sometimes sends play cmd on poweron but it's no sense, it'll send the request again if it really meant to
     }
-    unilink.play_cmd_cnt = 0;
     if ((mag_data.status != mag_removed)
         && (unilink.status != unilink_ejecting)) {              // If magazine is present and we are not ejecting      //FIXME: Ejecting check might be wrong?
       if (cd_data[unilink.disc - 1].inserted) {                 // If current selected disc is valid
