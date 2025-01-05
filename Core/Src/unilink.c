@@ -520,26 +520,29 @@ void unilink_myid_cmd(void) {
 #endif
       if ((mag_data.status != mag_removed)
           && (unilink.status != unilink_ejecting)) {
+
+        uint8_t d = unilink.disc;                               // Save current disc
+
         if (!cd_data[disc - 1].inserted) {                      // If requested disc is not present
-          uint8_t d = unilink.disc;
-          unilink.disc = disc;
-          unilink_send_cartridge_status(mag_slot_empty);
-          unilink.disc = d;
-          if (!cd_data[unilink.disc - 1].inserted) {            // Return to previous disc if possible
-            disc = 0;
-            for (uint8_t i = 0; i < _DISCS_; i++) {
+          unilink.disc = disc;                                  // Set requested disc temporally to send slot empty msg
+          unilink_send_cartridge_status(mag_slot_empty);        // Send empty slot message
+          unilink_set_status(unilink_idle);                     // Idle state, the ICS will send activation after empty slot
+          disc=0;                                               // Set requested disc invalid
+          unilink.disc = d;                                     // Restore disc
+          if (!cd_data[d - 1].inserted) {                       // If previous disc is empty (Shouldn't happen...)
+            unilink.disc=0;                                     // Set current disc invalid
+            for (uint8_t i = 0; i < _DISCS_; i++) {             // Find first valid one
               if (cd_data[i].inserted) {
-                disc = i + 1;
+                unilink.disc = i + 1;
                 break;
               }
             }
           }
         }
-        if (!disc) {                                            // No discs on system
+        if (unilink.disc==0) {                                  // No discs on system XXX: Not tested, this is a weird situation
           unilink.trackChanged = 0;                             // Abort track change
-          unilink_set_status(unilink_idle);                     // Idle state
         }
-        else {
+        else if(disc){                                          // Requested disc was valid, set changing status
           unilink.disc = disc;
           unilink_set_status(unilink_changing);
         }
