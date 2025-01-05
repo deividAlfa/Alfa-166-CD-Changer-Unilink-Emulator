@@ -64,7 +64,11 @@ To compile:<br>
 
 It should recognize it and be ready for compiling or modifying for your own needs.<br>
 The settings are placed in `config.h`.<br>
-  
+
+It can be programmed with any programmers supporting SWD (ST-Link, JFlash, DAP-Link...),  also using the embedded bootloader (DFU).
+Download [STM32 Cube Programmer](https://www.st.com/en/development-tools/stm32cubeprog.html), hold BOOT0 button and connect the usb to the computer.<br>
+It will detect a new device, flash the compiled binary with the tool (`Release` folder, take any .hex, .elf, .bin).
+<br>  
  
 <a id="working"></a>
 ### Working options
