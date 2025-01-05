@@ -167,9 +167,7 @@ typedef struct {
   volatile uint8_t          groupID;          // Stores group ID
   volatile uint8_t          lastAutoStatus;   // Stores last cmd sent by unilink_auto_status
   volatile uint8_t          disc;             // Stores current disc
-  volatile uint8_t          lastDisc;         // Stores previous disc after a disc change
   volatile uint8_t          track;            // Stores current track
-  volatile uint8_t          lastTrack;        // Stores previous track after a track change
   volatile uint8_t          min;              // Stores current minute
   volatile uint8_t          sec;              // Stores current second
   volatile uint8_t          rxCount;          // Counter for received bytes
@@ -182,7 +180,6 @@ typedef struct {
   volatile uint8_t          logData[parity2_L+2]; // Stores packet for logger
   volatile uint16_t         millis;           // millisecond timer, for generating the playback time
   volatile uint16_t         timeout;          // Timeout counter for detecting bus stall
-  volatile uint16_t         statusTimer;      // Stores unilink status timer
   union{
     volatile uint16_t flags;
     struct{
@@ -192,7 +189,6 @@ typedef struct {
       unsigned             play         :1;   // Stores play status from master
       unsigned             powered_on   :1;   // Stores play status from master when receiving power command
       unsigned             trackChanged :1;   // Flag, set if disc/track needs to be changed
-      unsigned             mag_changed  :1;   // Flag, set if usb was changed
       unsigned             usb_ok       :1;	  // Set when files were found in the drive
       unsigned             received     :1;   // Flag, set when packet received
       unsigned             bad_checksum :1;   // Flag, bad packet received, force byte timeout to clean clocks
@@ -210,7 +206,7 @@ typedef struct {
 
 #define _BREAK_QUEUE_SZ_             16				// Queue size. Increase if getting buffer full errors in the log.
 typedef struct{
-  uint8_t                   break_counter;    // For rate limiter on self-generated messages
+  uint8_t                   counter;          // For rate limiter on self-generated messages
   uint8_t                   break_str;        // Only for passive mode, indicates we sent some break messages and we need to push a new line
   volatile uint8_t          dataTime;         // For measuring data high/low states
   volatile uint16_t         lost;             // Counter for discarded slavebreaks if the queue was full
@@ -267,7 +263,7 @@ extern cdinfo_t     cd_data[_DISCS_];
 #define   msg_discinfo_empty   { addr_master,  unilink.ownAddr, cmd_discinfo, 0x01, 0x99, 0x00, 0x00, 0x01 }
 #define   msg_discinfo         { addr_master,  unilink.ownAddr, cmd_discinfo, 0x01, hex2bcd(cd_data[unilink.disc-1].tracks), hex2bcd(cd_data[unilink.disc-1].mins), hex2bcd(cd_data[unilink.disc-1].secs), (unilink.disc<<4) }
 #define   msg_status           { addr_master,  unilink.ownAddr, cmd_status, unilink.status }
-#define   msg_cfgchange        { addr_display, unilink.ownAddr, cmd_cfgchange, 0x20, 0x00,0x00,0x00,0x00 }
+#define   msg_cfgchange        { addr_display, unilink.ownAddr, cmd_cfgchange,  0x20, 0x00, 0x00, 0x00, 0x00 }
 #define   msg_anyoneResp       { addr_master,  unilink.ownAddr, cmd_anyoneResp, 0x11, 0x14, 0xA8, 0x17, 0x60 }        // Becker 2660AR ID (Alfa 166)
 #define   msg_anyoneResp_alt   { addr_master,  unilink.ownAddr, cmd_anyoneResp, 0x11, 0x15, 0xA8, 0x17, 0x60 }        // Another ID, not used
 

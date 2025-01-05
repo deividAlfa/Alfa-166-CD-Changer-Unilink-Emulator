@@ -118,12 +118,11 @@ static void USBH_UserProcess  (USBH_HandleTypeDef *phost, uint8_t id)
   Appli_state = APPLICATION_DISCONNECT;
   if((systemStatus.driveStatus==drive_ready)||(systemStatus.driveStatus==drive_mounted)){
     iprintf("USB: Removed while mounted\r\n");
-    systemStatus.driveStatus=drive_removed;
   }
   else{
     iprintf("USB: Removed\r\n");
-    systemStatus.driveStatus=drive_nodrive;
   }
+  systemStatus.driveStatus=drive_removed;
   break;
 
   case HOST_USER_CLASS_ACTIVE:

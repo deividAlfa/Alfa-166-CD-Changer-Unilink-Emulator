@@ -22,6 +22,11 @@ extern DMA_HandleTypeDef hdma_memtomem_dma2_stream0;
 
 void initAudio(I2S_HandleTypeDef *hi2s){
   i2sHandle = hi2s;
+  systemStatus.update_files=1;  // Scan files when playback starts
+}
+
+void AudioUpdateFiles(void){
+  systemStatus.update_files=1;
 }
 
 void handleAudio(void){
@@ -72,8 +77,8 @@ void AudioStart(void){
       AudioStop();                                                  // Stop and empty everything
     }
 
-    if(unilink.lastDisc != unilink.disc){                           // Disc (folder) changed?
-      unilink.lastDisc = unilink.disc;
+    if(systemStatus.update_files){
+      systemStatus.update_files=0;
       sortFS();                                                     // Sort files
     }
     if(openFile() != FR_OK){
@@ -155,7 +160,6 @@ void AudioStop(void){
 void AudioNext(void){
 #ifdef AUDIO_SUPPORT
   AudioStop();
-  unilink.lastTrack = unilink.track;
   if(++unilink.track >= cd_data[unilink.disc-1].tracks){
     unilink.track=1;
   }

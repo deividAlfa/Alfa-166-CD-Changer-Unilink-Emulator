@@ -18,14 +18,14 @@
 
 /*   Logging outputs. Can be enabled concurrently   */
 #define SWO_PRINT                                   // Print to SWO
-//#define UART_PRINT                                // Print to the uart
+#define UART_PRINT                                // Print to the uart
 //#define USB_LOG                                   // Print into a USB file
 
 
 /*   Logging options   */
 #define UNILINK_LOG_ENABLE
 #define UNILINK_LOG_DETAILED                      // Enable to append command description to each decoded frame
-//#define UNILINK_LOG_TIMESTAMP                     // Add timestamps
+#define UNILINK_LOG_TIMESTAMP                     // Add timestamps
 
 
 /*  Unilink protocol stuff */
@@ -33,7 +33,6 @@
 #define _BYTE_TIMEOUT_            1300            // Timeout in us between bytes in a frame. Critical, don't touch
 #define _RESET_TIMEOUT_           2000            // Timeout in ms without master clock when idle causing a warm reset
 #define _PWROFF_TIMEOUT_          10000           // Timeout in ms without master clock to release PWR_ON pin ans shut down (Ourselves)
-#define _BREAK_INTERVAL_          5               // Limiter for self-generated messages to avoid flooding the master
 #define _DISCS_                   6               // Discs in the system
 
 
@@ -43,7 +42,7 @@
 
 /* Do not touch */
 #if defined (AUDIO_SUPPORT) && defined (BT_SUPPORT)
-#error AUDIO_SUPPORT and BT_SUPPORT enabled at the same time, please disable one! Check config.h
+//#error AUDIO_SUPPORT and BT_SUPPORT enabled at the same time, please disable one! Check config.h
 #endif
 
 #if defined (PASSIVE_MODE) && defined (AUDIO_SUPPORT)

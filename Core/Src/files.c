@@ -36,53 +36,64 @@ void initFS(void){
 
 void removeDrive(void){
   f_mount(0, "", 1);
+  systemStatus.driveStatus=drive_removed;
 }
 
 void handleFS(void){
   FRESULT res;
+  if(systemStatus.driveStatus==drive_ready && readPin(BTN_GPIO_Port, BTN_Pin)==0){           // Drive ready
+#ifdef AUDIO_SUPPORT
+    AudioStop();
+#endif
+#ifdef USB_LOG
+    flush_log();
+#endif
+    removeDrive();
+  }
   if(systemStatus.driveStatus==drive_inserted){           // Drive present
+  for(uint8_t i=0;i<10;i++){
+    res = f_mount(systemStatus.fat, "", 1);
+    if(res==FR_OK) break;
+  }
+  if(res!=FR_OK){
+      iprintf("SYSTEM: Failed to mount volume\r\n");
+      systemStatus.driveStatus=drive_error;           //Failure on mount
+  }
+  else{
+    iprintf("SYSTEM: Volume mounted\r\n");
     for(uint8_t i=0;i<10;i++){
-      res = f_mount(systemStatus.fat, "", 1);
+      res = f_chdir("/");
       if(res==FR_OK) break;
     }
     if(res!=FR_OK){
-        iprintf("SYSTEM: Failed to mount volume\r\n");
-        systemStatus.driveStatus=drive_error;           //Failure on mount
+       iprintf("SYSTEM: Failed to open root dir\r\n");
+       systemStatus.driveStatus=drive_error;           //Failure on mount
     }
     else{
-      iprintf("SYSTEM: Volume mounted\r\n");
-      for(uint8_t i=0;i<10;i++){
-        res = f_chdir("/");
-        if(res==FR_OK) break;
-      }
-      if(res!=FR_OK){
-         iprintf("SYSTEM: Failed to open root dir\r\n");
-         systemStatus.driveStatus=drive_error;           //Failure on mount
-      }
-      else{
-        iprintf("SYSTEM: Opened root folder\r\n");
-        systemStatus.driveStatus=drive_mounted;
-      }
+      iprintf("SYSTEM: Opened root folder\r\n");
+      systemStatus.driveStatus=drive_mounted;
     }
   }
-  if(systemStatus.driveStatus==drive_mounted){
-    systemStatus.driveStatus = drive_ready;
+}
+if(systemStatus.driveStatus==drive_mounted){
+  systemStatus.driveStatus = drive_ready;
 #ifdef USB_LOG
-    reset_usb_log();
+  reset_usb_log();
 #endif
 #ifdef AUDIO_SUPPORT
-    systemStatus.fileStatus = file_none;
-    scanFS();
-    unilink_clear_discs();
-    for(uint8_t i=0;i<FOLDERS;i++){                       // Transfer file count to cd info (for unilink)
-      if(systemStatus.fileCount[i]){
-        cd_data[i].tracks=systemStatus.fileCount[i];
-        cd_data[i].mins=99;
-        cd_data[i].secs=59;
-        cd_data[i].inserted=1;
-      }
+  systemStatus.fileStatus = file_none;
+  scanFS();
+  unilink_clear_discs();
+  for(uint8_t i=0;i<FOLDERS;i++){                       // Transfer file count to cd info (for unilink)
+    if(systemStatus.fileCount[i]){
+      cd_data[i].tracks=systemStatus.fileCount[i];
+      cd_data[i].mins=99;
+      cd_data[i].secs=59;
+      cd_data[i].inserted=1;
     }
-    unilink_update_magazine();
+  }
+  unilink_update_magazine();
+  AudioUpdateFiles();
 #endif
   }
 
@@ -92,7 +103,7 @@ void handleFS(void){
 
     iprintf("SYSTEM: Removing mounting point\r\n");
     f_mount(0, "", 1);                              // remove mount point
-    systemStatus.driveStatus=drive_removed;
+    systemStatus.driveStatus=drive_nodrive;
 
 #ifdef AUDIO_SUPPORT
     AudioStop();
@@ -114,6 +125,8 @@ void iprintfiles(void){
 
 
 void sortFS(void){
+  if(systemStatus.fileCount[unilink.disc-1]==0) return;
+
   FRESULT res = FR_OK;
   char temp[13];
   uint32_t Min;

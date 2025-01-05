@@ -37,9 +37,7 @@ typedef enum{
 
 
 typedef struct{
-  uint8_t         unilink_change;     // Flag to indicate unilink track/disc change was received
-  uint8_t         currentFolder;      // Current folder number
-  uint8_t         currentFile;        // Current file number
+  uint8_t         update_files;       // Flag set when changing disc, we must scan and update a new folder
 #if defined AUDIO_SUPPORT || defined USB_LOG
 	driveStatus_t	 	driveStatus; 		    // 0 = no drive, 1=mounted, 2=scanned
 	fileStatus_t		fileStatus; 		    // 0 = No file, 1 = File opened, 2 = File end reached
@@ -78,6 +76,7 @@ void AudioStop(void);
 void AudioStart(void);
 void AudioNext(void);
 void AudioPause(void);
+void AudioUpdateFiles(void);
 #endif
 
 

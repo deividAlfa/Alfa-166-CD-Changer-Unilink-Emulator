@@ -141,7 +141,7 @@ void BT_handle_buttons(void){
     bt.button.on_time=0;
 #ifdef BT_SKIP_FIX_TIME
     if(bt.button.do_stop_afterskip)
-      bt.button.off_time = now+BT_skip_resume_time;               // Wait before resuming playback for ICS to unmute
+      bt.button.off_time = now+BT_SKIP_FIX_TIME;               // Wait before resuming playback for ICS to unmute
     else
 #endif
       bt.button.off_time = now+BT_btn_off_time;
