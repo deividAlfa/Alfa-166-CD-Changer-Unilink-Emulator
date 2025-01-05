@@ -183,6 +183,7 @@ typedef struct {
   union{
     volatile uint16_t flags;
     struct{
+      unsigned             update_time  :1;
       unsigned             system_off   :1;   // Stores turn off flag after very long timeout, assuming the car is off
       unsigned             logReady     :1;   // Indicates buffer ready for loggingg
       unsigned             logBreak     :1;   // Indicates tx frame was a caused by a slave break

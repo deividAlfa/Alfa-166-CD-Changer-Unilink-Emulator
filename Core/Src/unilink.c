@@ -70,8 +70,13 @@ void unilink_init(SPI_HandleTypeDef *SPI, TIM_HandleTypeDef *tim) {
 }
 
 void unilink_handle(void) {
-  extern IWDG_HandleTypeDef hiwdg;
+  extern IWDG_HandleTypeDef hiwdg;                              // XXX: Fix this cheap code
   HAL_IWDG_Refresh(&hiwdg);
+
+  if(unilink.update_time){
+    unilink.update_time=0;
+    unilink_add_slave_break(cmd_time);
+  }
   if (unilink.system_off == 0 && unilink.timeout > _PWROFF_TIMEOUT_) {                          // 10 second without any activity
     putString("No activity timeout, shutting down...\r\n");
 #ifdef USB_LOG
@@ -128,12 +133,6 @@ void unilink_handle(void) {
 #endif
 
   unilink_handle_led();                                                                         // Handle activity led
-
-  if (unilink.sec > 1) {                                                                        // For BT, always resume track 50 after changing
-#ifdef BT_SUPPORT
-    unilink.track=50;
-#endif
-  }
 }
 
 void unilink_clear_discs(void) {
@@ -494,10 +493,7 @@ void unilink_myid_cmd(void) {
     uint8_t disc = unilink.rxData[cmd2] & 0x0F;
     uint8_t track = bcd2hex(unilink.rxData[d1]);
 #ifdef BT_SUPPORT
-      uint8_t t = track;
-      if(unilink.disc != disc){
-        track=50;
-      }
+    if(unilink.disc == disc){
       if(track==unilink.track){
         BT_Prev();
       }
@@ -509,13 +505,13 @@ void unilink_myid_cmd(void) {
         for(uint8_t i=0;i<(track-unilink.track);i++)
           BT_Next();
       }
-      if(unilink.disc != disc){
-        track=t;
-      }
+    }
 #endif
 
     if (track == 0)
       track = 1;
+
+    unilink.track=track;
     unilink.trackChanged = 1;
 
     if (unilink.disc != disc) {                                 // Disc changed
@@ -823,6 +819,11 @@ void unilink_add_slave_break(uint8_t command) {
   {
     uint8_t msg[] = msg_time;
     unilink_create_msg(msg, (uint8_t*) slaveBreak.data[i]);
+#ifdef BT_SUPPORT
+    //if (unilink.sec > 2) {                                      // For BT, always resume track 50, but we must acknowledge the requested track at least once
+      unilink.track=50;                                         // (We just did by sending the upper message)
+    //}
+#endif
     break;
   }
   case cmd_status:                                              // status
@@ -969,7 +970,12 @@ void unilink_tick(void) {
     return;
 
   if (unilink.status == unilink_playing) {
-    if (++unilink.millis > 999) {
+    unilink.millis++;
+    if((unilink.millis&0xFF)==0xFF){                            // Cheap way to make events every 256ms ~= 250ms
+         unilink.update_time=1;
+    }
+    if (unilink.millis > 999) {
+      unilink.update_time=1;
       unilink.millis = 0;
       if (++unilink.sec > 59) {                                 // Simulates play time
         unilink.sec = 0;
