@@ -59,11 +59,17 @@ void unilink_init(SPI_HandleTypeDef *SPI, TIM_HandleTypeDef *tim) {
   unilink.timer = tim;
   unilink.SPI = SPI;
 
+
+#ifndef PASSIVE_MODE
   mag_data.status = mag_inserted;
   unilink_update_magazine();
   setDataLow();                                                                                 // Set DATA Output latch low (Doesn't affect when GPIO is set to input or SPI mode)
 
   unilinkColdReset();
+#else
+  unilink_spi_mode(mode_rx);
+#endif
+
   __HAL_TIM_SET_AUTORELOAD(unilink.timer, _BYTE_TIMEOUT_);
   HAL_TIM_Base_Start_IT(unilink.timer);
   unilink.hwinit = 1;
@@ -73,10 +79,14 @@ void unilink_handle(void) {
   extern IWDG_HandleTypeDef hiwdg;                              // XXX: Fix this cheap code
   HAL_IWDG_Refresh(&hiwdg);
 
+#ifdef AUDIO_SUPPORT
   if(unilink.update_time){
     unilink.update_time=0;
     unilink_add_slave_break(cmd_time);
   }
+#endif
+
+#ifndef PASSIVE_MODE
   if (unilink.system_off == 0 && unilink.timeout > _PWROFF_TIMEOUT_) {                          // 10 second without any activity
     putString("No activity timeout, shutting down...\r\n");
 #ifdef USB_LOG
@@ -86,8 +96,6 @@ void unilink_handle(void) {
     setPinLow(PWR_ON_GPIO_Port, PWR_ON_Pin);                                                    // Turn off system
     unilink.system_off = 1;                                                                     // Set this flag to not repeat this. But don't block the program execution,
   }                                                                                             //  just in case the ICS comes back to live. We'll enable the pin again if that happens...
-#ifdef UNILINK_LOG_ENABLE
-  unilinkLog();
 #endif
 
   if (unilink.received) {
@@ -101,6 +109,9 @@ void unilink_handle(void) {
       unilink.bad_checksum = 1;                                                                 // Bad checksum, probably skipped a clock
       putString("BAD CHECKSUM\r\n");                                                            // Resync by ignoring further data until master stops sending clocks and triggers a byte timeout.
     }
+#ifdef UNILINK_LOG_ENABLE
+    unilinkLog();
+#endif
   }
 
 #ifdef AUDIO_SUPPORT
@@ -135,6 +146,71 @@ void unilink_handle(void) {
   unilink_handle_led();                                                                         // Handle activity led
 }
 
+bool unilink_checksum(void) {                                   // Check parity of complete Unilink packet
+  uint8_t i = 0;                                                // local byte counter
+  uint8_t checksum = 0;                                         // local checksum
+
+  for (i = 0; i < (unilink.rxSize - 2); i++) {
+    if (i == parity1) {                                         // Short messages will never get here, this is the first checksum for medium or long frame
+      if (checksum != unilink.rxData[parity1]) {
+        return 0;
+      }
+    }
+    else {
+      checksum += unilink.rxData[i];
+    }
+  }
+  if (checksum != unilink.rxData[i] || unilink.rxData[i + 1] != 0) {
+    return 0;
+  }
+  return 1;                                                     // Second checksum is invalid, return false
+}
+
+void unilink_handle_led(void) {                                                                 // Activity LED
+
+#if defined (PASSIVE_MODE) && defined (USB_LOG)                                                 // Passive mode: LED for usb status
+  static uint32_t time = 0;
+  if(HAL_GetTick()>time){
+    time=HAL_GetTick();
+    togglePin(LED_GPIO_Port,LED_Pin);
+    if(systemStatus.driveStatus==drive_ready){
+      time+=500;                                                                                // Drive mounted, slow blink
+    }
+    else{
+      time+=50;                                                                                 // Else, fast blinking
+    }
+  }
+#elif !defined (PASSIVE_MODE)
+  static uint32_t time = 0;
+  if (unilink.masterinit) {                                                                     // Device mode: Led for unilink status
+    if (unilink.status == unilink_idle) {
+      setPinLow(LED_GPIO_Port, LED_Pin);                                                        // Idle state and initialized, Led on
+    }
+    else if (unilink.status == unilink_playing) {                                               // Play state, quick led blinking
+      if (HAL_GetTick() - time > 100) {
+        time = HAL_GetTick();
+        togglePin(LED_GPIO_Port, LED_Pin);
+      }
+    }
+  }
+  else {
+    if (!HAL_GPIO_ReadPin(LED_GPIO_Port, LED_Pin)) {
+      if (HAL_GetTick() - time > 20) {
+        time = HAL_GetTick();                                                                   // If not initialized, make small pulses
+        setPinHigh(LED_GPIO_Port, LED_Pin);                                                     // Indicating we're alive but not initialized
+      }
+    }
+    else {
+      if (HAL_GetTick() - time > 1000) {
+        time = HAL_GetTick();
+        setPinLow(LED_GPIO_Port, LED_Pin);
+      }
+    }
+  }
+#endif
+}
+
+#ifndef PASSIVE_MODE
 void unilink_clear_discs(void) {
   for (uint8_t i = 0; i < _DISCS_; i++) {                                                       // Clear discs
     cd_data[i].inserted = 0;
@@ -185,49 +261,6 @@ void unilink_update_magazine(void) {                                            
   unilink_reset_playback_time();
   unilink.play = 0;                                                                             // Don't go into play mode automatically
 }
-
-void unilink_handle_led(void) {                                                                 // Activity LED
-  static uint32_t time = 0;
-#if defined (PASSIVE_MODE) && defined (USB_LOG)                                                 // Passive mode: LED for usb status
-  if(HAL_GetTick()>time){
-    time=HAL_GetTick();
-    togglePin(LED_GPIO_Port,LED_Pin);
-    if(systemStatus.driveStatus==drive_ready){
-      time+=500;                                                                                // Drive mounted, slow blink
-    }
-    else{
-      time+=50;                                                                                 // Else, fast blinking
-    }
-  }
-#elif !defined (PASSIVE_MODE)
-  if (unilink.masterinit) {                                                                     // Device mode: Led for unilink status
-    if (unilink.status == unilink_idle) {
-      setPinLow(LED_GPIO_Port, LED_Pin);                                                        // Idle state and initialized, Led on
-    }
-    else if (unilink.status == unilink_playing) {                                               // Play state, quick led blinking
-      if (HAL_GetTick() - time > 100) {
-        time = HAL_GetTick();
-        togglePin(LED_GPIO_Port, LED_Pin);
-      }
-    }
-  }
-  else {
-    if (!HAL_GPIO_ReadPin(LED_GPIO_Port, LED_Pin)) {
-      if (HAL_GetTick() - time > 20) {
-        time = HAL_GetTick();                                                                   // If not initialized, make small pulses
-        setPinHigh(LED_GPIO_Port, LED_Pin);                                                     // Indicating we're alive but not initialized
-      }
-    }
-    else {
-      if (HAL_GetTick() - time > 1000) {
-        time = HAL_GetTick();
-        setPinLow(LED_GPIO_Port, LED_Pin);
-      }
-    }
-  }
-#endif
-}
-
 //  Unilink frame structure
 //  char data[]= "00  00  00  00  00  00  00  00  00  00  00  00  00  00  00  00";
 //                0   1   2   3   4   5   6   7   8   9   10  11  12  13  14  15
@@ -603,26 +636,6 @@ void unilink_set_status(uint8_t status) {
   unilink.status = status;
 }
 
-bool unilink_checksum(void) {                                   // Check parity of complete Unilink packet
-  uint8_t i = 0;                                                // local byte counter
-  uint8_t checksum = 0;                                         // local checksum
-
-  for (i = 0; i < (unilink.rxSize - 2); i++) {
-    if (i == parity1) {                                         // Short messages will never get here, this is the first checksum for medium or long frame
-      if (checksum != unilink.rxData[parity1]) {
-        return 0;
-      }
-    }
-    else {
-      checksum += unilink.rxData[i];
-    }
-  }
-  if (checksum != unilink.rxData[i] || unilink.rxData[i + 1] != 0) {
-    return 0;
-  }
-  return 1;                                                     // Second checksum is invalid, return false
-}
-
 void unilinkColdReset(void) {
   unilink.masterinit = 0;
   unilink.busReset = 0;
@@ -673,6 +686,7 @@ void unilink_data_mode(unilink_DATAmode_t mode) {               // Set DATA pin 
    }
    */
 }
+#endif
 
 void unilink_wait_spi_busy(void) {                              // Wait until SPI flag busy clears out
   uint32_t t = HAL_GetTick() + 2;                               // 2ms timeout should be more than enough
@@ -692,7 +706,9 @@ void unilink_spi_mode(unilink_SPImode_t mode) {
   __HAL_SPI_CLEAR_MODFFLAG(unilink.SPI);
 
   __HAL_SPI_DISABLE_IT(unilink.SPI, (SPI_IT_RXNE | SPI_IT_TXE));
+#ifndef PASSIVE_MODE
   unilink_data_mode(mode_SPI);                                  // Set DATA pin to SPI
+#endif
 
   unilink.timeout = 0;
   unilink.bad_checksum = 0;
@@ -767,6 +783,7 @@ void unilink_spi_mode(unilink_SPImode_t mode) {
   __HAL_SPI_ENABLE(unilink.SPI);
 }
 
+#ifndef PASSIVE_MODE
 void unilink_reset_playback_time(void) {
   __disable_irq();
   unilink.min = 0;
@@ -973,8 +990,8 @@ void unilink_tick(void) {
 
   if (unilink.status == unilink_playing) {
     unilink.millis++;
-    if((unilink.millis&0xFF)==0xFF){                            // Cheap way to make events every 256ms ~= 250ms
-         unilink.update_time=1;
+    if(unilink.millis==500){
+         unilink.update_time=1;                                 // Send time msg twice a second
     }
     if (unilink.millis > 999) {
       unilink.update_time=1;
@@ -1010,6 +1027,7 @@ void unilink_tick(void) {
     unilink_spi_mode(mode_rx);
   }
 }
+#endif
 
 void unilink_byte_timeout(void) {                               // Byte timeout (When the master already started sending clocks)
   if (unilink.mode == mode_rx) {
@@ -1023,6 +1041,7 @@ void unilink_byte_timeout(void) {                               // Byte timeout 
       unilink_spi_mode(mode_rx);
     }
   }
+#ifndef PASSIVE_MODE
   else if (unilink.mode == mode_tx && (unilink.txCount > 1)) {  // Byte timeout when sending a frame
     if (slaveBreak.msg_state == break_msg_sending) {
       slaveBreak.msg_state = break_msg_idle;
@@ -1033,6 +1052,7 @@ void unilink_byte_timeout(void) {                               // Byte timeout 
     }
     unilink_spi_mode(mode_rx);
   }
+#endif
 }
 
 void unilink_callback(void) {
@@ -1043,6 +1063,9 @@ void unilink_callback(void) {
   if (unilink.mode == mode_rx && (unilink.SPI->Instance->CR2 & SPI_CR2_RXNEIE)
       && (unilink.SPI->Instance->SR & SPI_SR_RXNE)) {                                           // If in receive mode
     uint8_t rx = ~*(__IO uint8_t*) &unilink.SPI->Instance->DR;                                  // store last received byte (inverted)
+    if (unilink.bad_checksum) {                                                                 // bad checksum: Discard everything until the master transmission ends, causing a byte timeout (Resync)
+      return;
+    }
     if (unilink.rxCount == 0) {                                                                 // If first byte
       if (rx < 0x10 || rx > 0xF0) {                                                             // Ignore invalid addresses
         return;
@@ -1050,9 +1073,6 @@ void unilink_callback(void) {
       else {                                                                                    // First valid byte
         unilink.rxSize = unilink_short;                                                         // Begin by setting frame size to short until we get cmd1
       }
-    }
-    if (unilink.bad_checksum) {                                                                 // bad checksum: Discard everything until the master transmission ends, causing a byte timeout (Resync)
-      return;
     }
     unilink.rxData[unilink.rxCount] = rx;                                                       // Store data in the buffer
     if (unilink.rxCount == cmd1) {                                                              // cmd1 received, detect msg size now
@@ -1071,6 +1091,7 @@ void unilink_callback(void) {
       unilink_spi_mode(mode_rx);                                                                // Done
     }
   }
+#ifndef PASSIVE_MODE
   else if (unilink.mode == mode_tx
       && (unilink.SPI->Instance->CR2 & SPI_CR2_TXEIE)
       && (unilink.SPI->Instance->SR & SPI_SR_TXE)) {                                            // If in transmit mode
@@ -1109,5 +1130,6 @@ void unilink_callback(void) {
       }
     }
   }
+#endif
 }
 
