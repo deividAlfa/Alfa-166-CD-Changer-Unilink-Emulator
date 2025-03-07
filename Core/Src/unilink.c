@@ -109,11 +109,10 @@ void unilink_handle(void) {
       unilink.bad_checksum = 1;                                                                 // Bad checksum, probably skipped a clock
       putString("BAD CHECKSUM\r\n");                                                            // Resync by ignoring further data until master stops sending clocks and triggers a byte timeout.
     }
-#ifdef UNILINK_LOG_ENABLE
-    unilinkLog();
-#endif
   }
-
+#ifdef UNILINK_LOG_ENABLE
+  unilinkLog();
+#endif
 #ifdef AUDIO_SUPPORT
   if (systemStatus.driveStatus == drive_ready && unilink.usb_ok == 1) {
     if (unilink.trackChanged) {
