@@ -24,6 +24,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "unilink.h"
+#include "bt.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -58,7 +59,7 @@
 
 /* External variables --------------------------------------------------------*/
 extern HCD_HandleTypeDef hhcd_USB_OTG_FS;
-extern DMA_HandleTypeDef hdma_spi5_tx;
+extern DMA_HandleTypeDef hdma_spi2_tx;
 extern SPI_HandleTypeDef hspi1;
 extern TIM_HandleTypeDef htim10;
 /* USER CODE BEGIN EV */
@@ -76,7 +77,6 @@ void NMI_Handler(void)
   /* USER CODE BEGIN NonMaskableInt_IRQn 0 */
 
   /* USER CODE END NonMaskableInt_IRQn 0 */
-  HAL_RCC_NMI_IRQHandler();
   /* USER CODE BEGIN NonMaskableInt_IRQn 1 */
   while (1)
   {
@@ -195,6 +195,9 @@ void SysTick_Handler(void)
   /* USER CODE BEGIN SysTick_IRQn 1 */
 #ifndef PASSIVE_MODE
   unilink_tick();
+#ifdef BT_SUPPORT
+  BT_handle();
+#endif
 #endif
   /* USER CODE END SysTick_IRQn 1 */
 }
@@ -207,12 +210,27 @@ void SysTick_Handler(void)
 /******************************************************************************/
 
 /**
+  * @brief This function handles DMA1 stream4 global interrupt.
+  */
+void DMA1_Stream4_IRQHandler(void)
+{
+  /* USER CODE BEGIN DMA1_Stream4_IRQn 0 */
+
+  /* USER CODE END DMA1_Stream4_IRQn 0 */
+  HAL_DMA_IRQHandler(&hdma_spi2_tx);
+  /* USER CODE BEGIN DMA1_Stream4_IRQn 1 */
+
+  /* USER CODE END DMA1_Stream4_IRQn 1 */
+}
+
+/**
   * @brief This function handles TIM1 update interrupt and TIM10 global interrupt.
   */
 void TIM1_UP_TIM10_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM1_UP_TIM10_IRQn 0 */
-
+    unilink_byte_timeout();             // Use our ISR routine
+    return;                   // Ignore HAL handler
   /* USER CODE END TIM1_UP_TIM10_IRQn 0 */
   HAL_TIM_IRQHandler(&htim10);
   /* USER CODE BEGIN TIM1_UP_TIM10_IRQn 1 */
@@ -234,20 +252,6 @@ void SPI1_IRQHandler(void)
   /* USER CODE BEGIN SPI1_IRQn 1 */
 
   /* USER CODE END SPI1_IRQn 1 */
-}
-
-/**
-  * @brief This function handles DMA2 stream4 global interrupt.
-  */
-void DMA2_Stream4_IRQHandler(void)
-{
-  /* USER CODE BEGIN DMA2_Stream4_IRQn 0 */
-
-  /* USER CODE END DMA2_Stream4_IRQn 0 */
-  HAL_DMA_IRQHandler(&hdma_spi5_tx);
-  /* USER CODE BEGIN DMA2_Stream4_IRQn 1 */
-
-  /* USER CODE END DMA2_Stream4_IRQn 1 */
 }
 
 /**

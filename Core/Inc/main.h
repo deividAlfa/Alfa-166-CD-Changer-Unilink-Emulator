@@ -32,6 +32,15 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+
+typedef enum{
+    OK  = 0,
+    ERR = 1,
+}result_t;
+
+#define ff_malloc  _malloc
+#define ff_free  _free
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -60,8 +69,6 @@ extern DMA_HandleTypeDef hdma_memtomem_dma2_stream0;
 /* USER CODE BEGIN EM */
 
 
-#define ff_malloc  _malloc
-#define ff_free  _free
 
 #ifdef DEBUG_ALLOC
 extern uint32_t        max_allocated;
@@ -85,44 +92,44 @@ void debug_heap(void);
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
-void DebugPulse(uint8_t pulses);
+void refresh_IWDG(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define LED_Pin GPIO_PIN_13
-#define LED_GPIO_Port GPIOC
-#define BTN_Pin GPIO_PIN_0
-#define BTN_GPIO_Port GPIOA
+#define AUX_DET_Pin GPIO_PIN_13
+#define AUX_DET_GPIO_Port GPIOC
+#define UNILINK_OUT_EN_Pin GPIO_PIN_3
+#define UNILINK_OUT_EN_GPIO_Port GPIOA
 #define UNILINK_CLOCK_Pin GPIO_PIN_5
 #define UNILINK_CLOCK_GPIO_Port GPIOA
 #define UNILINK_DATA_Pin GPIO_PIN_6
 #define UNILINK_DATA_GPIO_Port GPIOA
-#define BCK_Pin GPIO_PIN_0
-#define BCK_GPIO_Port GPIOB
-#define LCK_Pin GPIO_PIN_1
-#define LCK_GPIO_Port GPIOB
-#define BT_PWR_Pin GPIO_PIN_2
-#define BT_PWR_GPIO_Port GPIOB
-#define LED3_Pin GPIO_PIN_10
-#define LED3_GPIO_Port GPIOB
-#define BT_ON_Pin GPIO_PIN_12
+#define BT_DEFAULTS_Pin GPIO_PIN_7
+#define BT_DEFAULTS_GPIO_Port GPIOA
+#define BT_STOP_Pin GPIO_PIN_0
+#define BT_STOP_GPIO_Port GPIOB
+#define BT_PLAY_Pin GPIO_PIN_1
+#define BT_PLAY_GPIO_Port GPIOB
+#define BT_NEXT_Pin GPIO_PIN_2
+#define BT_NEXT_GPIO_Port GPIOB
+#define BT_PREV_Pin GPIO_PIN_10
+#define BT_PREV_GPIO_Port GPIOB
+#define SYS_ON_Pin GPIO_PIN_14
+#define SYS_ON_GPIO_Port GPIOB
+#define BT_1V8_Pin GPIO_PIN_8
+#define BT_1V8_GPIO_Port GPIOA
+#define AUX_EN_Pin GPIO_PIN_10
+#define AUX_EN_GPIO_Port GPIOA
+#define I2S_SEL_Pin GPIO_PIN_4
+#define I2S_SEL_GPIO_Port GPIOB
+#define BT_LED1_Pin GPIO_PIN_5
+#define BT_LED1_GPIO_Port GPIOB
+#define BT_LED0_Pin GPIO_PIN_6
+#define BT_LED0_GPIO_Port GPIOB
+#define BT_ON_Pin GPIO_PIN_8
 #define BT_ON_GPIO_Port GPIOB
-#define LED2_Pin GPIO_PIN_13
-#define LED2_GPIO_Port GPIOB
-#define LED1_Pin GPIO_PIN_14
-#define LED1_GPIO_Port GPIOB
-#define PLAY_Pin GPIO_PIN_15
-#define PLAY_GPIO_Port GPIOB
-#define STOP_Pin GPIO_PIN_8
-#define STOP_GPIO_Port GPIOA
-#define PREV_Pin GPIO_PIN_9
-#define PREV_GPIO_Port GPIOA
-#define NEXT_Pin GPIO_PIN_10
-#define NEXT_GPIO_Port GPIOA
-#define DOUT_Pin GPIO_PIN_8
-#define DOUT_GPIO_Port GPIOB
-#define PWR_ON_Pin GPIO_PIN_9
-#define PWR_ON_GPIO_Port GPIOB
+#define I2S_MUTE_Pin GPIO_PIN_9
+#define I2S_MUTE_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 #define LED_Pin_Pos   __get_GPIO_Pos(LED_Pin)

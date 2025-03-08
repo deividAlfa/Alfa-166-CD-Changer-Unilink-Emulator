@@ -27,14 +27,13 @@
 /* USER CODE BEGIN Includes */
 #include "files.h"
 #include "main.h"
-#include "i2sAudio.h"
+#include "audioDecode.h"
 
 /* USER CODE END Includes */
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 #ifdef AUDIO_SUPPORT
-extern system_t systemStatus;
 #endif
 /* USER CODE END PV */
 
@@ -116,19 +115,19 @@ static void USBH_UserProcess  (USBH_HandleTypeDef *phost, uint8_t id)
 
   case HOST_USER_DISCONNECTION:
   Appli_state = APPLICATION_DISCONNECT;
-  if((systemStatus.driveStatus==drive_ready)||(systemStatus.driveStatus==drive_mounted)){
+  if(getDriveStatus()==drive_ready || getDriveStatus()==drive_mounted){
     iprintf("USB: Removed while mounted\r\n");
   }
   else{
     iprintf("USB: Removed\r\n");
   }
-  systemStatus.driveStatus=drive_removed;
+  setDriveStatus(drive_removed);
   break;
 
   case HOST_USER_CLASS_ACTIVE:
   Appli_state = APPLICATION_READY;
   iprintf("USB: Active\r\n");
-  systemStatus.driveStatus=drive_inserted;
+  setDriveStatus(drive_inserted);
   break;
 
   case HOST_USER_CONNECTION:

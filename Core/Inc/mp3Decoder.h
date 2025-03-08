@@ -22,12 +22,12 @@ typedef struct{
 // Optimal size of output buffer is a multiple of MP3 granule size (576 samples)
 #define MP3_GRANULE_SIZE      576
 #define MP3Samples            MP3_GRANULE_SIZE*4        // 4 frames provide 52mS audio buffer (44100Hz)
-#define MP3_PCMSamples        MP3Samples*2              // *2 (Stereo)
+#define MP3_PCM_Samples       MP3Samples*2              // *2 (Stereo)
 
 
 int unsynchsafe(uint32_t in);
-uint8_t readID3(void);
-uint8_t mp3Start(void);
+result_t readID3(void);
+result_t mp3Start(void);
 void mp3Stop(void);
 unsigned int RetrieveMP3Data(void *pMP3CompressedData, unsigned int nMP3DataSizeInChars, void *token);
 uint32_t mp3FillBuffer(int16_t* dest, uint16_t samples);

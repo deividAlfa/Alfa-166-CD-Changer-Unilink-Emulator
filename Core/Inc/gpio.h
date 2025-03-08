@@ -11,6 +11,19 @@
 #include "main.h"
 
 
+#define _CON2(a,b)      a##b
+#define _PORT(p)        (_CON2(p,_GPIO_Port))
+#define _PIN(p)         (_CON2(p,_Pin))
+
+
+#define _IDR(p)         (_PORT(p)->IDR)
+#define _ODR(p)         (_PORT(p)->ODR)
+#define _BSRR(p)        (_PORT(p)->BSRR)
+#define _MODER(p)       (_PORT(p)->MODER)
+#define _OSPEEDR(p)     (_PORT(p)->OSPEEDR)
+#define _OTYPER(p)      (_PORT(p)->OTYPER)
+#define _PUPDR(p)       (_PORT(p)->PUPDR)
+
 // Returns bit position. Ex. 100000 ->5
 #define __get_GPIO_Pos(x)             (15*(1&&(x&(1<<15)))  + \
                                       14*(1&&(x&(1<<14)))   + \
@@ -41,32 +54,31 @@
 
 // GPIOx_MODER
 // Modes: MODE_INPUT, MODE_OUTPUT, MODE_AF, MODE_ANALOG
-#define setPinMode(port,pin,mode)     port->MODER = (port->MODER & ~(__expand_16to32(pin))) | mode<<(__get_GPIO_Pos(pin)*2)
+#define SetPinMode(pin,mode)          _MODER(pin) = (_MODER(pin) & ~(__expand_16to32(_PIN(pin)))) | mode<<(__get_GPIO_Pos(_PIN(pin))*2)
 
 // GPIOx_OTYPER
-// Otypes: MODE_OD, MODE_PP
-#define setPinOtype(port,pin,Otype)   port->OTYPER = (port->OTYPER & ~(pin)) | (pin*Otype)
+// Otypes: OUTPUT_OD, OUTPUT_PP
+#define SetPinOtype(pin,Otype)        _OTYPER(pin) = (_OTYPER(pin) & ~(_PIN(pin))) | (_PIN(pin)*(Otype&&1))
 
 // GPIOx_OSPEEDR
 // Speeds: GPIO_SPEED_FREQ_LOW, GPIO_SPEED_FREQ_MEDIUM, GPIO_SPEED_FREQ_HIGH, GPIO_SPEED_FREQ_VERY_HIGH
-#define setPinSpeed(port,pin,speed)   port->OSPEEDR = (port->OSPEEDR & ~(__expand_16to32(pin))) | speed<<(__get_GPIO_Pos(pin)*2)
+#define SetPinSpeed(pin,speed)        _OSPEEDR(pin) = _OSPEEDR(pin) & ~(__expand_16to32(_PIN(pin))) | speed<<(__get_GPIO_Pos(_PIN(pin))*2)
 
 // GPIOx_PUPDR
 // Pulls: GPIO_NOPULL, GPIO_PULLUP, GPIO_PULLDOWN
-#define setPinPull(port,pin,pull)     port->PUPDR = (port->PUPDR & ~(__expand_16to32(pin))) | pull<<(__get_GPIO_Pos(pin)*2)
+#define SetPinPull(pin,pull)          _PUPDR(pin) = _PUPDR(pin) & ~(__expand_16to32(_PIN(pin))) | pull<<(__get_GPIO_Pos(_PIN(pin))*2)
 
 // GPIOx_IDR
-#define readPin(port,pin)             ((port->IDR & pin)&&1)
-#define readPort(port)                port->IDR
+#define ReadPin(pin)                  (_IDR(pin) & _PIN(pin) && 1)
+#define ReadPort(port)                port->IDR
 
 // GPIOx_ODR
-#define writePort(port,val)           port->ODR = val
-//#define togglePin(port,pin)          port->ODR = port->ODR^pin
-#define togglePin(port,pin)           port->BSRR = (readPin(port,pin) ? pin<<16 : pin)
+#define WritePort(port,val)           port->ODR = val
+#define TogglePin(pin)                _ODR(pin) ^= _PIN(pin)
 
 // GPIOx_BSRR
-#define writePin(port,pin,val)        port->BSRR = pin<<(16*(!val))
-#define setPinHigh(port,pin)          port->BSRR = pin
-#define setPinLow(port,pin)           port->BSRR = pin<<16
+#define WritePin(pin,val)             _BSRR(pin) = _PIN(pin) << (val ? 0 : 16)
+#define SetPinHigh(pin)               _BSRR(pin) = _PIN(pin)
+#define SetPinLow(pin)                _BSRR(pin) = _PIN(pin)<<16
 
 #endif /* INC_GPIO_H_ */

@@ -1,21 +1,21 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * @attention
-  *
-  * <h2><center>&copy; Copyright (c) 2020 STMicroelectronics.
-  * All rights reserved.</center></h2>
-  *
-  * This software component is licensed by ST under BSD 3-Clause license,
-  * the "License"; You may not use this file except in compliance with the
-  * License. You may obtain a copy of the License at:
-  *                        opensource.org/licenses/BSD-3-Clause
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * <h2><center>&copy; Copyright (c) 2020 STMicroelectronics.
+ * All rights reserved.</center></h2>
+ *
+ * This software component is licensed by ST under BSD 3-Clause license,
+ * the "License"; You may not use this file except in compliance with the
+ * License. You may obtain a copy of the License at:
+ *                        opensource.org/licenses/BSD-3-Clause
+ *
+ ******************************************************************************
+ */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
@@ -27,9 +27,10 @@
 #include "unilink_log.h"
 #include "serial.h"
 #include "files.h"
-#include "i2sAudio.h"
+#include "audioSrc.h"
+#include "audioDecode.h"
 #include "bt.h"
-
+#include "opus.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -48,8 +49,8 @@
 /* Private variables ---------------------------------------------------------*/
 CRC_HandleTypeDef hcrc;
 
-I2S_HandleTypeDef hi2s5;
-DMA_HandleTypeDef hdma_spi5_tx;
+I2S_HandleTypeDef hi2s2;
+DMA_HandleTypeDef hdma_spi2_tx;
 
 IWDG_HandleTypeDef hiwdg;
 
@@ -63,12 +64,20 @@ DMA_HandleTypeDef hdma_memtomem_dma2_stream0;
 /* USER CODE BEGIN PV */
 
 #ifdef DEBUG_ALLOC
-extern const unsigned int  _Min_Heap_Size;
+extern const unsigned int _Min_Heap_Size;
 unsigned int _heap_size = (unsigned int) (&_Min_Heap_Size);
 struct mallinfo mi;
 uint32_t max_allocated;
 #endif
-
+/*
+ input_t button = {
+ .port=BTN_GPIO_Port,
+ .pin=BTN_Pin,
+ .debounce_time=200,
+ .edge_detect=1,
+ .edge_type=0
+ };
+ */
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -78,18 +87,18 @@ static void MX_DMA_Init(void);
 static void MX_TIM10_Init(void);
 static void MX_CRC_Init(void);
 static void MX_SPI1_Init(void);
-static void MX_I2S5_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_IWDG_Init(void);
+static void MX_I2S2_Init(void);
 void MX_USB_HOST_Process(void);
 
 /* USER CODE BEGIN PFP */
 
 #ifdef DEBUG_ALLOC
-void debug_heap(void){
-  mi=mallinfo();
-  if(mi.uordblks>max_allocated)
-    max_allocated=mi.uordblks;
+void debug_heap(void) {
+    mi = mallinfo();
+    if (mi.uordblks > max_allocated)
+        max_allocated = mi.uordblks;
 }
 #endif
 
@@ -97,6 +106,18 @@ void debug_heap(void){
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+/*
+bool opus_opened = 0;
+static DWORD clmt[32];
+stb_vorbis vorbis;
+short bf[2048];
+short *bfa = bf;
+short **bfb = &bfa;
+*/
+void refresh_IWDG(void){
+    HAL_IWDG_Refresh(&hiwdg);
+}
 
 /* USER CODE END 0 */
 
@@ -109,12 +130,12 @@ int main(void)
   /* USER CODE BEGIN 1 */
 
 #ifdef DEBUG_ALLOC
-  uint8_t *mall = malloc(_heap_size);   // Allocate all the heap possible and then free it. Now the system knows the heap size, and won't cause internal fragmentation.
-  if(mall==NULL){
-    Error_Handler();                   // Failed to allocate heap
-  }
-  free(mall);
-  mi=mallinfo();
+    uint8_t *mall = malloc(_heap_size);                // Allocate all the heap possible and then free it. Now the system knows the heap size, and won't cause internal fragmentation.
+    if (mall == NULL) {
+        Error_Handler();                   // Failed to allocate heap
+    }
+    free(mall);
+    mi = mallinfo();
 #endif
   /* USER CODE END 1 */
 
@@ -142,30 +163,32 @@ int main(void)
   MX_SPI1_Init();
   MX_FATFS_Init();
   MX_USB_HOST_Init();
-  MX_I2S5_Init();
   MX_USART1_UART_Init();
   MX_IWDG_Init();
+  MX_I2S2_Init();
   /* USER CODE BEGIN 2 */
 
-  __HAL_DBGMCU_FREEZE_TIM10();
+    //while(HAL_GetTick()<50);
+    //addInputDebounce(&button);
+    __HAL_DBGMCU_FREEZE_TIM10();
 
 #ifdef UART_PRINT
-  initSerial(&huart1);
+    initSerial(&huart1);
 #endif
 
-  putString("System init...\r\n");
+    putString("System init...\r\n");
 
 #ifdef DEBUG_ALLOC
-  debug_heap();
+    debug_heap();
 #endif
-
+    setAudioSource(src_bt);
 #if defined AUDIO_SUPPORT || defined USB_LOG
-  initFS();
+    initFS();
 #endif
 
-  unilink_init(&hspi1, &htim10);
+    unilink_init(&hspi1, &htim10);
 #ifdef AUDIO_SUPPORT
-  initAudio(&hi2s5);
+    initAudio(&hi2s2);
 #endif
 
   /* USER CODE END 2 */
@@ -173,28 +196,47 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
-
-
-  while (1) {
+    while (1) {
 #if defined AUDIO_SUPPORT || defined USB_LOG
-	  handleFS();
+        handleFS();
 #endif
 #if defined USB_LOG
     handle_log();
 #endif
 #ifdef AUDIO_SUPPORT
-    handleAudio();
+        handleAudio();
 #endif
-	  unilink_handle();
-#if defined BT_SUPPORT
-	  BT_handle();
-#endif
+        unilink_handle();
 
     /* USER CODE END WHILE */
     MX_USB_HOST_Process();
 
     /* USER CODE BEGIN 3 */
-  }
+        /*
+         if(systemStatus.driveStatus==drive_ready && opus_opened==0){
+         if(f_chdir("/") != FR_OK){               // Change dir
+         iprintf("Error opening folder\r\n");
+         }
+         else if(f_open(systemStatus.file, "file.opu", FA_READ) != FR_OK ){  // Open file
+         iprintf("SYSTEM: Error opening file\r\n");
+         }
+         else{
+         clmt[0] = 32;                                                               // Set table size
+         systemStatus.file->cltbl = clmt;                                                      // Enable fast seek feature (cltbl != NULL)
+         if(f_lseek(systemStatus.file, CREATE_LINKMAP) != FR_OK){        // Create CLMT
+         f_close( systemStatus.file );
+         iprintf("SYSTEM: FatFS Seek error\r\n");
+         }
+         else{
+         opus_opened=1;
+         int error;
+         stb_vorbis_open_file(systemStatus.file, 1, &error, NULL);
+         stb_vorbis_get_samples_short(&vorbis, 2, bfb, 1024);
+         }
+         }
+         }
+         */
+    }
   /* USER CODE END 3 */
 }
 
@@ -242,10 +284,6 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
-
-  /** Enables the Clock Security System
-  */
-  HAL_RCC_EnableCSS();
 }
 
 /**
@@ -275,36 +313,36 @@ static void MX_CRC_Init(void)
 }
 
 /**
-  * @brief I2S5 Initialization Function
+  * @brief I2S2 Initialization Function
   * @param None
   * @retval None
   */
-static void MX_I2S5_Init(void)
+static void MX_I2S2_Init(void)
 {
 
-  /* USER CODE BEGIN I2S5_Init 0 */
+  /* USER CODE BEGIN I2S2_Init 0 */
 
-  /* USER CODE END I2S5_Init 0 */
+  /* USER CODE END I2S2_Init 0 */
 
-  /* USER CODE BEGIN I2S5_Init 1 */
+  /* USER CODE BEGIN I2S2_Init 1 */
 
-  /* USER CODE END I2S5_Init 1 */
-  hi2s5.Instance = SPI5;
-  hi2s5.Init.Mode = I2S_MODE_MASTER_TX;
-  hi2s5.Init.Standard = I2S_STANDARD_PHILIPS;
-  hi2s5.Init.DataFormat = I2S_DATAFORMAT_16B;
-  hi2s5.Init.MCLKOutput = I2S_MCLKOUTPUT_DISABLE;
-  hi2s5.Init.AudioFreq = I2S_AUDIOFREQ_44K;
-  hi2s5.Init.CPOL = I2S_CPOL_LOW;
-  hi2s5.Init.ClockSource = I2S_CLOCK_PLL;
-  hi2s5.Init.FullDuplexMode = I2S_FULLDUPLEXMODE_DISABLE;
-  if (HAL_I2S_Init(&hi2s5) != HAL_OK)
+  /* USER CODE END I2S2_Init 1 */
+  hi2s2.Instance = SPI2;
+  hi2s2.Init.Mode = I2S_MODE_MASTER_TX;
+  hi2s2.Init.Standard = I2S_STANDARD_PHILIPS;
+  hi2s2.Init.DataFormat = I2S_DATAFORMAT_16B;
+  hi2s2.Init.MCLKOutput = I2S_MCLKOUTPUT_DISABLE;
+  hi2s2.Init.AudioFreq = I2S_AUDIOFREQ_44K;
+  hi2s2.Init.CPOL = I2S_CPOL_LOW;
+  hi2s2.Init.ClockSource = I2S_CLOCK_PLL;
+  hi2s2.Init.FullDuplexMode = I2S_FULLDUPLEXMODE_DISABLE;
+  if (HAL_I2S_Init(&hi2s2) != HAL_OK)
   {
     Error_Handler();
   }
-  /* USER CODE BEGIN I2S5_Init 2 */
+  /* USER CODE BEGIN I2S2_Init 2 */
 
-  /* USER CODE END I2S5_Init 2 */
+  /* USER CODE END I2S2_Init 2 */
 
 }
 
@@ -419,14 +457,14 @@ static void MX_USART1_UART_Init(void)
 
   /* USER CODE END USART1_Init 1 */
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 1000000;
+  huart1.Init.BaudRate = 921600;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
-  huart1.Init.Mode = UART_MODE_TX;
+  huart1.Init.Mode = UART_MODE_TX_RX;
   huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart1.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart1) != HAL_OK)
+  if (HAL_HalfDuplex_Init(&huart1) != HAL_OK)
   {
     Error_Handler();
   }
@@ -446,6 +484,7 @@ static void MX_DMA_Init(void)
 
   /* DMA controller clock enable */
   __HAL_RCC_DMA2_CLK_ENABLE();
+  __HAL_RCC_DMA1_CLK_ENABLE();
 
   /* Configure DMA request hdma_memtomem_dma2_stream0 on DMA2_Stream0 */
   hdma_memtomem_dma2_stream0.Instance = DMA2_Stream0;
@@ -467,9 +506,9 @@ static void MX_DMA_Init(void)
   }
 
   /* DMA interrupt init */
-  /* DMA2_Stream4_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Stream4_IRQn, 3, 0);
-  HAL_NVIC_EnableIRQ(DMA2_Stream4_IRQn);
+  /* DMA1_Stream4_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream4_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream4_IRQn);
 
 }
 
@@ -491,75 +530,77 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOA, UNILINK_OUT_EN_Pin|AUX_EN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, BT_ON_Pin|PLAY_Pin|PWR_ON_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(BT_DEFAULTS_GPIO_Port, BT_DEFAULTS_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, STOP_Pin|PREV_Pin|NEXT_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, BT_STOP_Pin|BT_PLAY_Pin|BT_NEXT_Pin|BT_PREV_Pin, GPIO_PIN_SET);
 
-  /*Configure GPIO pin : LED_Pin */
-  GPIO_InitStruct.Pin = LED_Pin;
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, SYS_ON_Pin|I2S_SEL_Pin|BT_ON_Pin|I2S_MUTE_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : AUX_DET_Pin */
+  GPIO_InitStruct.Pin = AUX_DET_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(AUX_DET_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : UNILINK_OUT_EN_Pin AUX_EN_Pin */
+  GPIO_InitStruct.Pin = UNILINK_OUT_EN_Pin|AUX_EN_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LED_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : BTN_Pin */
-  GPIO_InitStruct.Pin = BTN_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(BTN_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : BT_PWR_Pin */
-  GPIO_InitStruct.Pin = BT_PWR_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
-  HAL_GPIO_Init(BT_PWR_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : LED3_Pin LED2_Pin LED1_Pin */
-  GPIO_InitStruct.Pin = LED3_Pin|LED2_Pin|LED1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : BT_ON_Pin PLAY_Pin */
-  GPIO_InitStruct.Pin = BT_ON_Pin|PLAY_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : STOP_Pin PREV_Pin NEXT_Pin */
-  GPIO_InitStruct.Pin = STOP_Pin|PREV_Pin|NEXT_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PWR_ON_Pin */
-  GPIO_InitStruct.Pin = PWR_ON_Pin;
+  /*Configure GPIO pin : BT_DEFAULTS_Pin */
+  GPIO_InitStruct.Pin = BT_DEFAULTS_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(BT_DEFAULTS_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : BT_STOP_Pin BT_PLAY_Pin BT_NEXT_Pin BT_PREV_Pin */
+  GPIO_InitStruct.Pin = BT_STOP_Pin|BT_PLAY_Pin|BT_NEXT_Pin|BT_PREV_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : SYS_ON_Pin */
+  GPIO_InitStruct.Pin = SYS_ON_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(SYS_ON_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : BT_1V8_Pin */
+  GPIO_InitStruct.Pin = BT_1V8_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(BT_1V8_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : I2S_SEL_Pin BT_ON_Pin I2S_MUTE_Pin */
+  GPIO_InitStruct.Pin = I2S_SEL_Pin|BT_ON_Pin|I2S_MUTE_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(PWR_ON_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : BT_LED1_Pin BT_LED0_Pin */
+  GPIO_InitStruct.Pin = BT_LED1_Pin|BT_LED0_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
-  setPinHigh(PWR_ON_GPIO_Port, PWR_ON_Pin);                 // XXX: Turn on external mosfet before Unilink BUS_ON signal goes low.
+                                       // TODO: Set Option bytes BOR level 3 (STLink Tool) to keep the STM32 from rebooting when powering off!!
+    SetPinHigh(SYS_ON);                // XXX: Turn on external mosfet as fast as we can before Unilink BUS_ON signal goes low!
 /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
-
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
-
-	if(htim==unilink.timer){
-		__HAL_TIM_CLEAR_IT(unilink.timer,TIM_IT_UPDATE);						// Clear flag
-		unilink_byte_timeout();
-	}
-}
-
 
 /* USER CODE END 4 */
 
@@ -570,12 +611,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
-  /* User can add his own implementation to report the HAL error return state */
-  __disable_irq();
-  iprintf("\r\nERROR HANDLER\r\n");
-  while (1)
-  {
-  }
+    /* User can add his own implementation to report the HAL error return state */
+    __disable_irq();
+    iprintf("\r\nERROR HANDLER\r\n");
+    while (1) {
+    }
   /* USER CODE END Error_Handler_Debug */
 }
 
