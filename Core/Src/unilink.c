@@ -752,14 +752,18 @@ void unilink_add_slave_break(uint8_t command) {
             uint8_t msg[] = msg_time;
             if(unilink.fake_change){
                 msg[4] = hex2bcd(unilink.fake_track);			// Send requested disc once to make ICS happy
-                msg[7] = ((unilink.fake_disc<<4)|0xA);			// Otherwise it'll keep asking for the disc
-                unilink.fake_change=0;
-            }
+                msg[7] = ((unilink.fake_disc<<4)|0xA);			// Otherwise it'll keep asking for the disc over and over
+            }                                                   // Sending "Empty disc" cmd causes issues so this is a workaround
+
             unilink_create_msg(msg, (uint8_t*) slaveBreak.data[i]);
-            if(getAudioSource() == src_aux)
-                unilink.track = 44;
-            else if(getAudioSource() == src_bt)
-                unilink.track = 88;
+
+            if(!unilink.fake_change && (unilink.min || unilink.sec>2)){ // XXX: Keep requested track for 2 seconds before reverting
+                if(getAudioSource() == src_aux)                         // needed to properly detect multiple skips.
+                    unilink.track = 44;
+                else if(getAudioSource() == src_bt)
+                    unilink.track = 88;
+            }
+            unilink.fake_change=0;
             break;
         }
         case cmd_status:                                              // status
