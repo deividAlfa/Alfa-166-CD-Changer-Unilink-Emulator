@@ -82,15 +82,19 @@ void unlinkLogTimestamp(void) {
 }
 #endif
 
+#ifdef UNILINK_LOG_FILTER
+    uint8_t log_filter[16] = UNILINK_LOG_FILTER ;           // XXX: Set in config.h like { cmd_time,cmd_goto, ... }
+#endif
 void unilinkLogShow(void) {
 #ifdef UNILINK_LOG_ENABLE
     uint8_t count = 0, i = 0;
     char str[128];
     uint8_t size = Log.size;
 
-#ifndef PASSIVE_MODE
     if (Log.available == 0) return;
     Log.available = 0;
+
+#ifndef PASSIVE_MODE
 #else                                         // Detect slave breaks in PASSIVE_MODE mode
     if (!Log.available) {
         switch (slaveBreak.break_state) {
@@ -168,6 +172,20 @@ void unilinkLogShow(void) {
         putString("\r\n");
         slaveBreak.break_str = 0;
     }
+#endif
+
+#ifdef UNILINK_LOG_FILTER
+    uint8_t filter_match=0;                                     // 0=filter list empty (Show everything), 1=No match, 2=Match
+    for(uint8_t i=0;i<sizeof(log_filter);i++){
+        if(log_filter[i] != 0){
+            filter_match = 1;
+            if(log_filter[i] == Log.data[cmd1]){
+                filter_match = 2;
+                break;
+            }
+        }
+    }
+    if(filter_match==1) return;
 #endif
 
 #ifdef  UNILINK_LOG_DETAILED
