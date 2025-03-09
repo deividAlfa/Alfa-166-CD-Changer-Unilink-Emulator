@@ -213,6 +213,7 @@ void BT_Stop(void) {
     bt.button.repeat = 0;
     bt.button.do_stop = 1;
     bt.set_mode = bt_stop;
+    iprintf("BT_STOP\r\n");
 #endif
 }
 
@@ -222,6 +223,7 @@ void BT_Play(void) {
     bt.button.repeat = 0;
     bt.button.do_play = 1;
     bt.set_mode = bt_play;
+    iprintf("BT_PLAY\r\n");
 #endif
 }
 
@@ -229,9 +231,11 @@ void BT_Next(void) {
 #if defined BT_SUPPORT
     if (bt.button.do_next && bt.button.repeat_cmd == bt_next) {
         bt.button.repeat++;
+        iprintf("BT_NEXT(R)\r\n");
     }
     else {
         bt.button.repeat = 0;
+        iprintf("BT_NEXT\r\n");
     }
     bt.button.repeat_cmd = bt_next;
     bt.button.flags = 0;
@@ -243,9 +247,11 @@ void BT_Prev(void) {
 #if defined BT_SUPPORT
     if (bt.button.do_prev && bt.button.repeat_cmd == bt_prev) {
         bt.button.repeat++;
+        iprintf("BT_PREV(R)\r\n");
     }
     else {
         bt.button.repeat = 0;
+        iprintf("BT_PREV\r\n");
     }
     bt.button.repeat_cmd = bt_prev;
     bt.button.flags = 0;
