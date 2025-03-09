@@ -34,9 +34,8 @@ void unilink_broadcast(void);                // Handles broadcast unilink comman
 void unilink_myid_cmd(void);                  // Handles our ID unilink commands
 void unilink_appoint(void);                        // Associates with the master
 
-void unilink_send_cartridge_status(uint8_t status);                // Set status and queue a cartridgeinfo slave message
+//void unilink_send_cartridge_status(uint8_t status);                // Set status and queue a cartridgeinfo slave message
 void unilink_send_status(uint8_t status);                // Set status and queue an unilink slave message
-void unilink_auto_poll(void);                // Sends different poll commands on rotation to SlavePoll requests
 void unilink_update_status(void);                // Updates unilink status automatically
 void unilink_set_status(uint8_t status);                   // Set current status
 void unilink_add_slave_break(uint8_t command);                // Create and add a new message to the slave break queue based on the input command
@@ -71,8 +70,6 @@ void unilink_init(SPI_HandleTypeDef *SPI, TIM_HandleTypeDef *tim) {
 }
 
 void unilink_handle(void) {
-    refresh_IWDG();
-
     if (unilink.update_time) {
         unilink.update_time = 0;
         unilink_add_slave_break(cmd_time);
@@ -113,27 +110,17 @@ void unilink_handle(void) {
     unilinkLogShow();
 #endif
 
-    if(unilink.pendingReset && slaveBreak.pending==0)
-        unilink_cold_reset();
-
 #ifdef AUDIO_SUPPORT
     if (getAudioSource()==src_usb && usb_has_files()) {
-        if (unilink.trackChanged) {
-            AudioStart();
-            unilink_reset_playback_time();
-            unilink.trackChanged = 0;
+        if (unilink.status == unilink_playing) {
+            if (getAudioStatus() == audio_pause)
+                AudioResume();
+            else if (getAudioStatus() != audio_play)
+                AudioStart();
         }
         else {
-            if (unilink.status == unilink_playing) {
-                if (getAudioStatus() == audio_pause)
-                    AudioResume();
-                else if (getAudioStatus() != audio_play)
-                    AudioStart();
-            }
-            else {
-                if (getAudioStatus() == audio_play)
-                    AudioPause();
-            }
+            if (getAudioStatus() == audio_play)
+                AudioPause();
         }
     }
 #endif
@@ -215,15 +202,14 @@ void unilink_clear_discs(void) {
 
 void unilink_update_magazine(void) {                // usb was inserted, removed or contents changed
 #ifndef PASSIVE_MODE
-    mag_data.cmd2 = mag_empty;
+    mag_data.cmd2 = mag_full;
     unilink.disc = 0;                // First cd is 1. Set to 0 to detect if the following loop fails
     unilink_clear_discs();
     if(getAudioSource()==src_usb){
-        unilink_restore_position();
+        unilink_restore_usb_position();
         if(gen_usb_discinfo() == OK){
             for (uint8_t i = 0; i < _DISCS_; i++) {
                 if (cd_data[i].inserted) {
-                    mag_data.cmd2 |= mag_cd[i];                    // Add cd to magazine
                     if (unilink.disc == 0) {                    // Assign first valid cd
                         unilink.disc = i + 1;
                     }
@@ -247,8 +233,7 @@ void unilink_update_magazine(void) {                // usb was inserted, removed
                 unilink_clear_discs();
         }
     }
-    if (mag_data.cmd2 == mag_empty) {                   // No files in the drive
-        mag_data.cmd2 = mag_cd1;                // Set CD1 by default (Aux / BT mode)
+    if (unilink.disc==0) {                   // No files in the drive
         if(getAudioSource()==src_aux){
             cd_data[0].tracks = 0xAA;
             unilink.track = 44;
@@ -346,10 +331,6 @@ void unilink_broadcast(void) {                             // BROADCAST COMMANDS
                         uint8_t msg[] = msg_anyoneResp;
                         unilink_create_msg(msg, unilink.txData);                // send my device info string
                     }
-                    else {
-                    }
-                    break;
-                case cmd_appointEnd:
                     break;
                 default:
                     break;
@@ -357,9 +338,8 @@ void unilink_broadcast(void) {                             // BROADCAST COMMANDS
             break;
         }
         case cmd_source:                               // 0xF0 SRC Source select
-            if (unilink.rxData[cmd2] != unilink.ownAddr) {                // check if interface is deselected
+            if (unilink.rxData[cmd2] != unilink.ownAddr)                 // check if interface is deselected
                 unilink.status = unilink_idle;                // set idle status on deselect
-            }
             break;
         case cmd_power:                                      // 0x87 Power Event
             if (unilink.rxData[cmd2] == cmd_pwroff) {                // 0x00 Power off
@@ -411,9 +391,8 @@ void unilink_myid_cmd(void) {
             if ((mag_data.status != mag_removed)
                 && (unilink.status != unilink_ejecting)) {                // If magazine is present and we are not ejecting      //FIXME: Ejecting check might be wrong?
                 if (cd_data[unilink.disc - 1].inserted) {                // If current selected disc is valid
-                    if (unilink.track >= cd_data[unilink.disc - 1].tracks) {                // If current track is valid
+                    if (unilink.track >= cd_data[unilink.disc - 1].tracks)                // If current track is valid
                         unilink.track = 1;                  // Else, reset track
-                    }
                     unilink.play = 1;
                     if(getAudioSource() == src_bt)
                         BT_Play();
@@ -439,10 +418,9 @@ void unilink_myid_cmd(void) {
         }
         case cmd_switch:                                // 0x21 TA message start
         {
-            if (unilink.rxData[cmd2] == 0x20) {             // Not used?
+            if (unilink.rxData[cmd2] == 0x20)              // Not used?
                 unilink_set_status(unilink_idle);
-            }
-            if (unilink.rxData[cmd2] == 0x10) {             // Switch to CD? (Enable CD)
+            else if (unilink.rxData[cmd2] == 0x10) {             // Switch to CD? (Enable CD)
                 uint32_t now = HAL_GetTick();
                 uint32_t off_elapsed = now - unilink.off_time;
                 uint32_t src_elapsed = now - unilink.src_time;
@@ -451,61 +429,6 @@ void unilink_myid_cmd(void) {
                     setAudioSource(src_auto);
                 }
             }
-            break;
-        }
-
-        case cmd_fastFwd:                                   // 0x24 Fast Forward
-        {
-            break;
-        }
-        case cmd_fastRwd:                                   // 0x25 Fast Reverse
-        {
-            break;
-        }
-
-        case cmd_repeat:                              // 0x34 Repeat mode change
-        {
-            switch (unilink.rxData[cmd2]) {
-                case 0x00: {
-                    //repeat_mode(0);                                         // FIXME: Repeat is not implemented
-                    break;
-                }
-                case 0x10: {
-                    //repeat_mode(1);
-                    break;
-                }
-            }
-            unilink_add_slave_break(cmd_cfgchange);                // Add command to queue
-            break;
-        }
-        case cmd_shuffle:                            // 0x35 Shuffle mode change
-        {
-            switch (unilink.rxData[cmd2]) {
-                case 0x00: {
-                    //shuffle_mode(0);                                        // FIXME: Shuffle is not implemented
-                    break;
-                }
-                case 0x10: {
-                    //shuffle_mode(1);
-                    break;
-                }
-            }
-            unilink_add_slave_break(cmd_cfgchange);
-            break;
-        }
-        case cmd_intro:                                // 0x36 Intro mode change
-        {
-            switch (unilink.rxData[cmd2]) {
-                case 0x00: {
-                    //intro_mode(0);                                          // FIXME: Intro is not implemented
-                    break;
-                }
-                case 0x10: {
-                    //intro_mode(1);
-                    break;
-                }
-            }
-            unilink_add_slave_break(cmd_cfgchange);
             break;
         }
         case cmd_textRequest:                        // 0x84 request for command
@@ -530,10 +453,9 @@ void unilink_myid_cmd(void) {
         }
         case cmd_goto:                                  // 0xB0 Direct Disc keys
         {
-            unilink_reset_playback_time();
             uint8_t disc = unilink.rxData[cmd2] & 0x0F;
             uint8_t track = bcd2hex(unilink.rxData[d1]);
-
+            if(track==0) track=1;
             if (getAudioSource() == src_bt && unilink.disc == disc) {
                 if (track == unilink.track) {
                     BT_Prev();
@@ -547,46 +469,33 @@ void unilink_myid_cmd(void) {
                         BT_Next();
                 }
             }
-
-
-            if (track == 0) track = 1;
-            unilink.track = track;
-            unilink.trackChanged = 1;
-
             if (unilink.disc != disc) {                          // Disc changed
-                updateFiles();                                  // Force file sort when opening the file
-                if ((mag_data.status != mag_removed)
-                    && (unilink.status != unilink_ejecting)) {
-
-                    uint8_t d = unilink.disc;                // Save current disc
-
-                    if (!cd_data[disc - 1].inserted) {                // If requested disc is not present
-                        unilink.disc = disc;                // Set requested disc temporally to send slot empty msg
-                        unilink_send_cartridge_status(mag_slot_empty);                // Send empty slot message
-                        unilink_set_status(unilink_idle);                // Idle state, the ICS will send activation after empty slot
-                        disc = 0;                  // Set requested disc invalid
-                        unilink.disc = d;                        // Restore disc
-                        if (!cd_data[d - 1].inserted) {                // If previous disc is empty (Shouldn't happen...)
-                            unilink.disc = 0;                // Set current disc invalid
-                            for (uint8_t i = 0; i < _DISCS_; i++) {                // Find first valid one
-                                if (cd_data[i].inserted) {
-                                    unilink.disc = i + 1;
-                                    break;
-                                }
+                unilink_set_status(unilink_changing);
+                if (!cd_data[disc - 1].inserted) {                // If requested disc is not present
+                    unilink.fake_change = 1;                        // Hack to temporally agree with ICS
+                    unilink.fake_track = track;
+                    unilink.fake_disc = disc;
+                    if (!cd_data[unilink.disc - 1].inserted) {                // If previous disc is empty (Shouldn't happen...)
+                        unilink.disc = 0;                // Set current disc invalid
+                        for (uint8_t i = 0; i < _DISCS_; i++) {                // Find first valid one
+                            if (cd_data[i].inserted) {
+                                unilink.disc = i + 1;
+                                break;
                             }
                         }
                     }
-                    if (unilink.disc == 0) {                // No discs on system XXX: Not tested, this is a weird situation
-                        unilink.trackChanged = 0;                // Abort track change
-                    }
-                    else if (disc) {                // Requested disc was valid, set changing status
-                        unilink.disc = disc;
-                        unilink_set_status(unilink_playing);            // TODO: unilink_changing ?
-                    }
                 }
+                else
+                    updateFiles();                                  // Changing disc ok, force file sort
             }
-            else {
-                unilink_set_status(unilink_playing);                // Track changed
+            else                                                    // Only changed track
+                unilink_set_status(unilink_playing);
+
+            if (!unilink.fake_change){                         // Valid disc
+                unilink.disc = disc;
+                unilink.track = track;
+                AudioStop();
+                unilink_reset_playback_time();
             }
             break;
         }
@@ -615,9 +524,6 @@ void unilink_appoint(void) {                            // respond to ID appoint
 void unilink_update_status(void) {
 #ifndef PASSIVE_MODE
     switch (unilink.status) {
-        case unilink_playing:
-        case unilink_idle:
-            break;
         case unilink_changing:
             unilink.status = unilink_changed;
             break;
@@ -634,7 +540,6 @@ void unilink_update_status(void) {
             unilink.status = unilink_idle;
             break;
         default:
-            unilink.status = unilink_idle;
             break;
     }
 #endif
@@ -655,7 +560,6 @@ void unilink_cold_reset(void) {
 }
 
 void unilink_warm_reset(void) {
-    unilink.pendingReset = 0;
     unilink.powered_on = 0;
     unilink.received = 0;
     unilink.timeout = 0;
@@ -803,39 +707,27 @@ void unilink_next_track(void){
     }
 }
 
-void unilink_backup_position(void){
-    unilink.bkp_disc=unilink.disc;
-    unilink.bkp_track=unilink.track;
+void unilink_backup_usb_position(void){
+    unilink.usb_disc=unilink.disc;
+    unilink.usb_track=unilink.track;
 }
-void unilink_restore_position(void){
-    unilink.disc = (unilink.bkp_disc>0 ? unilink.bkp_disc : 1);     // Fallback to disc/track 1 if empty
-    unilink.track = (unilink.bkp_track>0 ? unilink.bkp_track : 1);
+void unilink_restore_usb_position(void){
+    unilink.disc = (unilink.usb_disc>0 ? unilink.usb_disc : 1);     // Fallback to disc/track 1 if empty
+    unilink.track = (unilink.usb_track>0 ? unilink.usb_track : 1);
 }
-void unilink_clear_backup_position(void){
-    unilink.bkp_disc=0;
-    unilink.bkp_track=0;
+void unilink_clear_backup_usb_position(void){
+    unilink.usb_disc=0;
+    unilink.usb_track=0;
 }
 void unilink_send_status(uint8_t status) {
     unilink_set_status(status);
     unilink_add_slave_break(cmd_status);
 }
 
-void unilink_send_cartridge_status(uint8_t status) {
-    uint8_t tmp = mag_data.status;                       // Backup current state
-
-    mag_data.status = status;
-    unilink_add_slave_break(cmd_cartridgeinfo);
-
-    if (status == mag_slot_empty)                // Don't permanently save this status, it's a one-time message to tell the ICS there's no CD in the requested slot
-        mag_data.status = tmp;                         // Restore previous state
-}
-
 void unilink_add_slave_break(uint8_t command) {
 #ifdef PASSIVE_MODE
     return;
 #endif
-    if(unilink.pendingReset) return;                   // Ignore new messages if we're resetting
-
     uint8_t i = slaveBreak.in;                             // Input buffer index
     if (slaveBreak.pending >= _BREAK_QUEUE_SZ_) {                // slave break queue full?
         slaveBreak.lost++;                // For debugging purposes, shouldn't happen
@@ -855,15 +747,14 @@ void unilink_add_slave_break(uint8_t command) {
             unilink_create_msg(msg, (uint8_t*) slaveBreak.data[i]);
             break;
         }
-        case cmd_cfgchange:                                           // mode
-        {
-            uint8_t msg[] = msg_cfgchange;
-            unilink_create_msg(msg, (uint8_t*) slaveBreak.data[i]);
-            break;
-        }
         case cmd_time:                                       // time info update
         {
             uint8_t msg[] = msg_time;
+            if(unilink.fake_change){
+                msg[4] = hex2bcd(unilink.fake_track);			// Send requested disc once to make ICS happy
+                msg[7] = ((unilink.fake_disc<<4)|0xA);			// Otherwise it'll keep asking for the disc
+                unilink.fake_change=0;
+            }
             unilink_create_msg(msg, (uint8_t*) slaveBreak.data[i]);
             if(getAudioSource() == src_aux)
                 unilink.track = 44;
@@ -880,18 +771,6 @@ void unilink_add_slave_break(uint8_t command) {
         case cmd_cartridgeinfo:                      // info about the cartridge
         {
             uint8_t msg[] = msg_cartridge_info;
-            unilink_create_msg(msg, (uint8_t*) slaveBreak.data[i]);
-            break;
-        }
-        case cmd_dspdiscchange:                // Sent by the original cd changer after changing cd
-        {
-            uint8_t msg[] = msg_dspchange;
-            unilink_create_msg(msg, (uint8_t*) slaveBreak.data[i]);
-            break;
-        }
-        case cmd_intro_end:                // Sent by the original cd changer after changing cd
-        {
-            uint8_t msg[] = msg_intro_end;
             unilink_create_msg(msg, (uint8_t*) slaveBreak.data[i]);
             break;
         }

@@ -89,7 +89,7 @@ void handleFS(void) {
 #endif
         setFileStatus(file_none);           // FIXME: Handle file list update (
         scanFS();                           // Find and count available folders/files // XXX: Filenames are not obtained yet, done in SortFS()
-        unilink_clear_backup_position();    // New usb, clear existing backup
+        unilink_clear_backup_usb_position();    // New usb, clear existing backup
         if(getAudioSource() == src_usb)
             unilink_update_magazine();          // Update magazine so it matches the scan results
     }
@@ -103,10 +103,7 @@ void handleFS(void) {
         iprintf("SYSTEM: Removing mounting point\r\n");
         f_mount(0, "", 1);                              // remove mount point
         setDriveStatus(drive_nodrive);
-        if(getAudioSource() == src_usb){
-            AudioStop();
-            unilink_update_magazine();
-        }
+        FileStruct.usb_has_files = 0;
     }
 }
 

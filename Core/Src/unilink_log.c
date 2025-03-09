@@ -90,6 +90,7 @@ void unilinkLogShow(void) {
 
 #ifndef PASSIVE_MODE
     if (Log.available == 0) return;
+    Log.available = 0;
 #else                                         // Detect slave breaks in PASSIVE_MODE mode
     if (!Log.available) {
         switch (slaveBreak.break_state) {
@@ -204,7 +205,6 @@ void unilinkLogShow(void) {
 
     // Print frame
 
-    Log.available = 0;
 
     while (count < (size - 1)) {
 #ifdef UNILINK_LOG_DETAILED

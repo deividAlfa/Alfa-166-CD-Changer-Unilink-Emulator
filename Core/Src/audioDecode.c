@@ -9,10 +9,7 @@
 #include "mp3Decoder.h"
 #include "wavDecoder.h"
 #include "unilink.h"
-
-#if defined AUDIO_SUPPORT || defined USB_LOG
 #include "fatfs.h"
-#endif
 
 #if defined AUDIO_SUPPORT
 

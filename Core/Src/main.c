@@ -115,9 +115,6 @@ short bf[2048];
 short *bfa = bf;
 short **bfb = &bfa;
 */
-void refresh_IWDG(void){
-    HAL_IWDG_Refresh(&hiwdg);
-}
 
 /* USER CODE END 0 */
 
@@ -197,6 +194,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
 
     while (1) {
+        monitorAudioSource();
 #if defined AUDIO_SUPPORT || defined USB_LOG
         handleFS();
 #endif
@@ -236,6 +234,8 @@ int main(void)
          }
          }
          */
+
+        HAL_IWDG_Refresh(&hiwdg);
     }
   /* USER CODE END 3 */
 }

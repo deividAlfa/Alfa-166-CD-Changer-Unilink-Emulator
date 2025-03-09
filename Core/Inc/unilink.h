@@ -143,6 +143,7 @@ typedef enum {                // For magazine cmd2
     mag_cd4 = 128,
     mag_cd5 = 1,
     mag_cd6 = 2,
+    mag_full = mag_cd1 | mag_cd2 | mag_cd3 | mag_cd4 | mag_cd5 | mag_cd6,
 } mag_cdtag_t;
 
 typedef struct {
@@ -152,8 +153,10 @@ typedef struct {
     volatile uint8_t lastAutoStatus;                // Stores last cmd sent by unilink_auto_status
     volatile uint8_t disc;                // Stores current disc
     volatile uint8_t track;                // Stores current track
-    volatile uint8_t bkp_disc;                // Stores backup disc
-    volatile uint8_t bkp_track;                // Stores backup track
+    volatile uint8_t fake_disc;                // Stores fake disc for hackign the ICS when requesting an empty disc
+    volatile uint8_t fake_track;                // Stores fake track
+    volatile uint8_t usb_disc;                // Stores usb backup disc
+    volatile uint8_t usb_track;                // Stores usb backup track
     volatile uint8_t min;                // Stores current minute
     volatile uint8_t sec;                // Stores current second
     volatile uint8_t rxCount;                // Counter for received bytes
@@ -172,7 +175,6 @@ typedef struct {
             unsigned entered_poweroff :1;                // Stores turn off flag after very long timeout, assuming the car is off
             unsigned play :1;                // Stores play status from master
             unsigned powered_on :1;                // Stores play status from master when receiving power command
-            unsigned trackChanged :1;                // Flag, set if disc/track needs to be changed
             unsigned received :1;                // Flag, set when packet received
             unsigned bad_checksum :1;                // Flag, bad packet received, force byte timeout to clean clocks
             unsigned appoint :1;                // Flag, set if we did appoint
@@ -180,7 +182,7 @@ typedef struct {
             unsigned hwinit :1;                // Flag, set if unilink hw is initialized
             unsigned masterinit :1;                // Flag, set if unilink was initialized by master
             unsigned mode :1;                // SPI transfer mode (1=rx, 0=tx)
-            unsigned pendingReset :1;  // Issue a warm reset when the Slave queue becomes empty
+            unsigned fake_change :1;       // Hack to bypass empty disc request from ICS
         };
     };
     uint32_t off_time;                      // Stores the time when the ICS disabled the CD, used to detect quick disable/enable sequence to perform source switching
@@ -236,19 +238,19 @@ extern cdinfo_t cd_data[_DISCS_];
 
 // Checksums not included - computed later.
 //    RAD           TAD           CMD1      CMD2    D1  D2  D3  D4
-#define   msg_seek             { addr_master,  unilink.ownAddr, cmd_seek, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,0x08 }
+//#define   msg_seek             { addr_master,  unilink.ownAddr, cmd_seek, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,0x08 }
 #define   msg_time             { addr_display, unilink.ownAddr, cmd_time, 0x00, hex2bcd(unilink.track), hex2bcd(unilink.min), hex2bcd(unilink.sec), ((unilink.disc<<4)|0xA) }
 #define   msg_magazine         { addr_master,  unilink.ownAddr, cmd_magazine, mag_data.cmd2 ,0x00 ,0x00 ,0x00 , 0x06 }
-#define   msg_mag_slot_empty   { addr_display,  unilink.ownAddr, cmd_cartridgeinfo, mag_slot_empty, 0x20 ,0x00 ,0x00, (unilink.disc<<4) }
 #define   msg_cartridge_info   { mag_data.status == mag_inserted ? addr_display2 : addr_display,  unilink.ownAddr, cmd_cartridgeinfo, mag_data.status, 0x20 ,0x00 ,0x00, (unilink.disc<<4) }
-#define   msg_dspchange        { addr_dsp,  unilink.ownAddr, cmd_dspdiscchange, 0x00, 0x00, 0x00, 0x00, ((unilink.disc<<4)|0x8) }
-#define   msg_intro_end        { addr_master,  unilink.ownAddr, cmd_intro_end, 0x10, 0x00, 0x00, 0x01, (unilink.disc<<4) }
-#define   msg_discinfo_empty   { addr_master,  unilink.ownAddr, cmd_discinfo, 0x01, 0x99, 0x00, 0x00, 0x01 }
 #define   msg_discinfo         { addr_master,  unilink.ownAddr, cmd_discinfo, 0x01, hex2bcd(cd_data[unilink.disc-1].tracks), hex2bcd(cd_data[unilink.disc-1].mins), hex2bcd(cd_data[unilink.disc-1].secs), (unilink.disc<<4) }
 #define   msg_status           { addr_master,  unilink.ownAddr, cmd_status, unilink.status }
-#define   msg_cfgchange        { addr_display, unilink.ownAddr, cmd_cfgchange,  0x20, 0x00, 0x00, 0x00, 0x00 }
 #define   msg_anyoneResp       { addr_master,  unilink.ownAddr, cmd_anyoneResp, 0x11, 0x14, 0xA8, 0x17, 0x60 }        // Becker 2660AR ID (Alfa 166)
-#define   msg_anyoneResp_alt   { addr_master,  unilink.ownAddr, cmd_anyoneResp, 0x11, 0x15, 0xA8, 0x17, 0x60 }        // Another ID, not used
+//#define   msg_anyoneResp_alt   { addr_master,  unilink.ownAddr, cmd_anyoneResp, 0x11, 0x15, 0xA8, 0x17, 0x60 }        // Another ID, not used
+//#define   msg_mag_slot_empty   { addr_display,  unilink.ownAddr, cmd_cartridgeinfo, mag_slot_empty, 0x20 ,0x00 ,0x00, (unilink.disc<<4) }
+//#define   msg_dspchange        { addr_dsp,  unilink.ownAddr, cmd_dspdiscchange, 0x00, 0x00, 0x00, 0x00, ((unilink.disc<<4)|0x8) }
+//#define   msg_intro_end        { addr_master,  unilink.ownAddr, cmd_intro_end, 0x10, 0x00, 0x00, 0x01, (unilink.disc<<4) }
+//#define   msg_discinfo_empty   { addr_master,  unilink.ownAddr, cmd_discinfo, 0x01, 0x99, 0x00, 0x00, 0x01 }
+//#define   msg_cfgchange        { addr_display, unilink.ownAddr, cmd_cfgchange,  0x20, 0x00, 0x00, 0x00, 0x00 }
 
 void unilink_init(SPI_HandleTypeDef *SPI, TIM_HandleTypeDef *tim);                // Inits unilink and stores SPI and timer handlers
 void unilink_handle(void);                // Main loop, call as often as possible from main
@@ -262,7 +264,7 @@ unilinkStatus_t unilink_status(void);
 uint8_t unilink_disc(void);
 uint8_t unilink_track(void);
 void unilink_next_track(void);
-void unilink_backup_position(void);
-void unilink_restore_position(void);
-void unilink_clear_backup_position(void);
+void unilink_backup_usb_position(void);
+void unilink_restore_usb_position(void);
+void unilink_clear_backup_usb_position(void);
 #endif
