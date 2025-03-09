@@ -113,7 +113,7 @@ void write_log(void) {
     if (log_file_status == FR_DISK_ERR) {
         return;
     }
-    else if (systemStatus.driveStatus != drive_ready) {
+    else if (getDriveStatus() != drive_ready) {
         log_file_status = FR_DISK_ERR;
         return;
     }
