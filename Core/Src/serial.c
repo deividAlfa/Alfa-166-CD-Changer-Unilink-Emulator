@@ -126,8 +126,8 @@ void write_log(void) {
     }
 
     if (log_file_status != FR_OK) {
-        res = f_open(&logfile, "/log.txt",
-            FA_CREATE_ALWAYS | FA_WRITE | FA_READ);
+        res = f_open(&logfile, "log.txt",
+            FA_OPEN_APPEND | FA_WRITE | FA_READ);
         if (res != FR_OK) {
             log_file_status = FR_DISK_ERR;
             return;
@@ -135,6 +135,8 @@ void write_log(void) {
         else {
             putString("USB Log: Created log.txt\r\n");
             log_file_status = FR_OK;
+            const char log_start[] = "\r\n\n##        Log session start        ##\r\n\n";       // This gets written now, before the actual log
+            f_write(&logfile, log_start, sizeof(log_start)-1, &written);
         }
     }
     res = f_write(&logfile, buf[wr_log_bf], wr_log_cnt, &written);
