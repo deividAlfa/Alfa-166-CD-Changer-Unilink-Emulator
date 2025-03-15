@@ -169,13 +169,12 @@ typedef struct {
     volatile uint16_t millis;                // millisecond timer, for generating the playback time
     volatile uint16_t timeout;                // Timeout counter for detecting bus stall
     union {
-        volatile uint16_t flags;
+        volatile uint32_t flags;
         struct {
             unsigned update_time :1;
             unsigned entered_poweroff :1;                // Stores turn off flag after very long timeout, assuming the car is off
             unsigned play :1;                // Stores play status from master
             unsigned powered_on :1;                // Stores play status from master when receiving power command
-            unsigned received :1;                // Flag, set when packet received
             unsigned bad_checksum :1;                // Flag, bad packet received, force byte timeout to clean clocks
             unsigned appoint :1;                // Flag, set if we did appoint
             unsigned busReset :1;                // Flag, set if master sent the bus reset
@@ -183,10 +182,19 @@ typedef struct {
             unsigned masterinit :1;                // Flag, set if unilink was initialized by master
             unsigned mode :1;                // SPI transfer mode (1=rx, 0=tx)
             unsigned fake_change :1;       // Hack to bypass empty disc request from ICS
+            unsigned changing :1;       // Flag set when changed disc or track, used introduce a delay before starting playback (The ICS waits few seconds to enable the audio)
+            unsigned disable_timeout :1;       // Hack to bypass master timeout (For debugging) // TODO: Remove this
+            unsigned force_play :1;       // Hack  (For debugging) // TODO: Remove this
+            unsigned force_stop :1;       // // TODO: Remove this
+            unsigned force_bt :1;       // // TODO: Remove this
+            unsigned force_bt_next :1;       // // TODO: Remove this
+            unsigned force_usb :1;       // // TODO: Remove this
+            unsigned force_aux :1;       // // TODO: Remove this
         };
     };
     uint32_t off_time;                      // Stores the time when the ICS disabled the CD, used to detect quick disable/enable sequence to perform source switching
     uint32_t src_time;                      // Stores last time src was changed
+    uint32_t change_delay;                  // Stores disc/track delay before playing
     TIM_HandleTypeDef *timer;                // Stores the address of the clock timer handler (for clock timeout)
     SPI_HandleTypeDef *SPI;                // Stores the address of the SPI handler
 } unilink_t;

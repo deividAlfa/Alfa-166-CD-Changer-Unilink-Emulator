@@ -67,9 +67,54 @@ void unilink_init(SPI_HandleTypeDef *SPI, TIM_HandleTypeDef *tim) {
     HAL_TIM_Base_Start_IT(unilink.timer);
     unilink.hwinit = 1;
     unilink.status = unilink_idle;
+    SetPinHigh(I2S_MUTE);
+}
+
+void unilink_debug_stuff(void){
+    if(unilink.disable_timeout)                 // Option for debugging purposes // TODO: Remove this
+        unilink.timeout=0;
+    if(unilink.force_aux){
+        unilink.force_play=1;
+        setAudioSource(src_aux);
+        unilink.force_aux=0;
+    }
+    if(unilink.force_usb){
+        unilink.force_play=1;
+        setAudioSource(src_usb);
+        unilink.force_usb=0;
+    }
+    if(unilink.force_bt){
+        unilink.force_play=1;
+        setAudioSource(src_bt);
+        unilink.force_bt=0;
+    }
+    if(unilink.force_bt_next){
+        unilink.force_bt_next=0;
+        BT_Next();
+    }
+
+    if(unilink.force_stop){
+        unilink.play=0;
+        unilink.status=unilink_idle;
+        BT_Stop();
+        unilink.force_stop=0;
+    }
+    if(unilink.force_play){
+        unilink.play=1;
+        unilink.status=unilink_playing;
+        BT_Play();
+        unilink.force_play=0;
+    }
 }
 
 void unilink_handle(void) {
+
+    unilink_debug_stuff();
+    if(unilink.changing && (HAL_GetTick()>unilink.change_delay)){
+        unilink.changing = 0;
+        SetPinHigh(I2S_MUTE);
+    }
+
     if (unilink.update_time) {
         unilink.update_time = 0;
         unilink_add_slave_break(cmd_time);
@@ -89,40 +134,8 @@ void unilink_handle(void) {
     }                //  just in case the ICS comes back to live. We'll enable the pin again if that happens...
 #endif
 
-    if (unilink.received) {
-        unilink.received = 0;                // Do a parity check of received packet and proceed if OK
-        if (unilink_checksum()) {
-#ifndef PASSIVE_MODE
-            if (unilink.rxData[dst_addr] == addr_broadcast)
-                unilink_broadcast();                  // parse broadcast packets
-            else if (unilink.rxData[dst_addr] == unilink.ownAddr)
-                unilink_myid_cmd();                   // parse packets for my ID
-            else if ((unilink.rxData[dst_addr] & 0xF0) == unilink.groupID)                // Appoint for us?
-                unilink_appoint();                    // do ID appoint procedure
-#endif
-        }
-        else {
-            unilink.bad_checksum = 1;                // Bad checksum, probably skipped a clock
-            putString("BAD CHECKSUM\r\n");                // Resync by ignoring further data until master stops sending clocks and triggers a byte timeout.
-        }
-    }
 #ifdef UNILINK_LOG_ENABLE
     unilinkLogShow();
-#endif
-
-#ifdef AUDIO_SUPPORT
-    if (getAudioSource()==src_usb && usb_has_files()) {
-        if (unilink.status == unilink_playing) {
-            if (getAudioStatus() == audio_pause)
-                AudioResume();
-            else if (getAudioStatus() != audio_play)
-                AudioStart();
-        }
-        else {
-            if (getAudioStatus() == audio_play)
-                AudioPause();
-        }
-    }
 #endif
 }
 
@@ -313,6 +326,23 @@ void unilink_create_msg(uint8_t *msg, volatile uint8_t *dest) {
 #endif
 }
 
+void unilink_parse(void){
+    if (unilink_checksum()) {
+#ifndef PASSIVE_MODE
+        if (unilink.rxData[dst_addr] == addr_broadcast)
+            unilink_broadcast();                  // parse broadcast packets
+        else if (unilink.rxData[dst_addr] == unilink.ownAddr)
+            unilink_myid_cmd();                   // parse packets for my ID
+        else if ((unilink.rxData[dst_addr] & 0xF0) == unilink.groupID)                // Appoint for us?
+            unilink_appoint();                    // do ID appoint procedure
+#endif
+    }
+    else {
+        unilink.bad_checksum = 1;                // Bad checksum, probably skipped a clock
+        putString("BAD CHECKSUM\r\n");                // Resync by ignoring further data until master stops sending clocks and triggers a byte timeout.
+    }
+}
+
 void unilink_broadcast(void) {                             // BROADCAST COMMANDS
 #ifndef PASSIVE_MODE
     switch (unilink.rxData[cmd1]) {                               // Switch CMD1
@@ -469,7 +499,9 @@ void unilink_myid_cmd(void) {
                         BT_Next();
                 }
             }
-            if (unilink.disc != disc) {                          // Disc changed
+            if (unilink.disc != disc) {                                 // Disc changed
+                unilink.changing = 1;
+                unilink.change_delay = HAL_GetTick()+_CHANGE_DISC_DELAY_;
                 unilink_set_status(unilink_changing);
                 if (!cd_data[disc - 1].inserted) {                // If requested disc is not present
                     unilink.fake_change = 1;                        // Hack to temporally agree with ICS
@@ -488,8 +520,13 @@ void unilink_myid_cmd(void) {
                 else
                     updateFiles();                                  // Changing disc ok, force file sort
             }
-            else                                                    // Only changed track
+            else{
+                unilink.changing = 1;
+                unilink.change_delay = HAL_GetTick()+_CHANGE_TRACK_DELAY_;                                                 // Only changed track
                 unilink_set_status(unilink_playing);
+            }
+            if(unilink.changing)
+                SetPinLow(I2S_MUTE);
 
             if (!unilink.fake_change){                         // Valid disc
                 unilink.disc = disc;
@@ -550,6 +587,9 @@ void unilink_set_status(uint8_t status) {
 #endif
 }
 
+unilinkStatus_t unilink_status(void){
+    return(unilink.changing ? unilink_idle : unilink.status);
+}
 void unilink_cold_reset(void) {
     unilink.masterinit = 0;
     unilink.busReset = 0;
@@ -561,7 +601,6 @@ void unilink_cold_reset(void) {
 
 void unilink_warm_reset(void) {
     unilink.powered_on = 0;
-    unilink.received = 0;
     unilink.timeout = 0;
     unilink.rxCount = 0;
     unilink.txCount = 0;
@@ -691,10 +730,6 @@ void unilink_reset_playback_time(void) {
     __enable_irq();
 #endif
 }
-unilinkStatus_t unilink_status(void){
-    return unilink.status;
-}
-
 uint8_t unilink_disc(void){
     return unilink.disc;
 }
@@ -794,7 +829,7 @@ void unilink_add_slave_break(uint8_t command) {
 }
 
 void unilink_handle_play_time(void) {
-    if (unilink.status == unilink_playing) {
+    if (unilink.status == unilink_playing && unilink.changing==0) {
         unilink.millis++;
         if (unilink.millis == 500)
             unilink.update_time = 1;                // Send time msg twice a second
@@ -812,6 +847,7 @@ void unilink_handle_play_time(void) {
 
 void unilink_handle_timeout(void) {
     unilink.timeout++;
+
     if (unilink.masterinit) {
         if (unilink.timeout > _RESET_TIMEOUT_) {                // No clock from master
             putString("Master Timeout\r\n");
@@ -981,8 +1017,8 @@ void unilink_callback(void) {
         }
         if (++unilink.rxCount == unilink.rxSize) {                // Frame complete
             unilinkLogUpdate(mode_rx);
-            unilink.received = 1;                 // set RX complete status flag
             unilink_spi_mode(mode_SPI_rx);                               // Done
+            unilink_parse();
         }
     }
     else if (unilink.mode == mode_tx
