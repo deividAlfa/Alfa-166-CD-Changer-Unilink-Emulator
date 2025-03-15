@@ -14,6 +14,7 @@
 #include "audioDecode.h"
 #include "wavDecoder.h"
 #include <malloc.h>
+#include "serial.h"
 
 #if defined AUDIO_SUPPORT
 
@@ -125,11 +126,11 @@ result_t checkWav(void) {
 // Starts wav decoder
 result_t wavStart(void) {
     if (checkWav() == ERR) {
-        iprintf("WAV: Bad file!\n");
+        putString("WAV: Bad file!\n");
         return ERR;
     }
     if(setPCMbuffer(_malloc(WAV_PCMSamples * 2)) != OK){                // *2 because 1sample = 16bits
-        iprintf("WAV: Error allocating Buffer!\n");
+        putString("WAV: Error allocating Buffer!\n");
         return ERR;
     }
     setPCMsamples(WAV_PCMSamples);

@@ -9,7 +9,7 @@
 #define INC_FILES_H_
 #include "main.h"
 
-#define MAXFILES  100
+#define MAXFILES  98            // The original charger reports 99 tracks for empty discs
 #define FILETYPES 2
 #define FOLDERS   _DISCS_
 
@@ -17,6 +17,7 @@ typedef enum {
     drive_nodrive = 0,                // No drive on system
     drive_inserted,                // Drive was inserted
     drive_mounted,                // Drive was successfully mounted
+    drive_scanning,                // Drive was successfully mounted
     drive_ready,                // Drive is mounted and has files
     drive_nofiles,                // Drive mounted but no files
     drive_removed,                // Drive removed while mounted
@@ -36,10 +37,11 @@ typedef enum {
 } filetype_t;
 
 typedef struct {
+    uint8_t scan_folder;
     uint8_t files_sorted;                // Flag indicating the current folder is sorted
     result_t usb_has_files;
-    driveStatus_t driveStatus;                // 0 = no drive, 1=mounted, 2=scanned
-    fileStatus_t fileStatus;                // 0 = No file, 1 = File opened, 2 = File end reached
+    driveStatus_t driveStatus;
+    fileStatus_t fileStatus;
     filetype_t filetype;                // File status
     //uint32_t lastFsSize;
     char lastFolder[6];                // Ex. "/CD01"
@@ -53,7 +55,7 @@ uint8_t find_mp3(char *path);
 result_t gen_usb_discinfo(void);
 uint8_t usb_has_files(void);
 void updateFiles(void);
-void scanFS(void);
+void scanFolder(uint8_t folder);
 void sortFS(void);
 uint8_t openFile(void);
 void closeFile(void);

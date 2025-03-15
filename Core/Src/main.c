@@ -213,17 +213,17 @@ int main(void)
         /*
          if(systemStatus.driveStatus==drive_ready && opus_opened==0){
          if(f_chdir("/") != FR_OK){               // Change dir
-         iprintf("Error opening folder\r\n");
+         putString("Error opening folder\r\n");
          }
          else if(f_open(systemStatus.file, "file.opu", FA_READ) != FR_OK ){  // Open file
-         iprintf("SYSTEM: Error opening file\r\n");
+         putString("SYSTEM: Error opening file\r\n");
          }
          else{
          clmt[0] = 32;                                                               // Set table size
          systemStatus.file->cltbl = clmt;                                                      // Enable fast seek feature (cltbl != NULL)
          if(f_lseek(systemStatus.file, CREATE_LINKMAP) != FR_OK){        // Create CLMT
          f_close( systemStatus.file );
-         iprintf("SYSTEM: FatFS Seek error\r\n");
+         putString("SYSTEM: FatFS Seek error\r\n");
          }
          else{
          opus_opened=1;
@@ -613,7 +613,7 @@ void Error_Handler(void)
   /* USER CODE BEGIN Error_Handler_Debug */
     /* User can add his own implementation to report the HAL error return state */
     __disable_irq();
-    iprintf("\r\nERROR HANDLER\r\n");
+    putString("\r\nERROR HANDLER\r\n");
     while (1) {
     }
   /* USER CODE END Error_Handler_Debug */

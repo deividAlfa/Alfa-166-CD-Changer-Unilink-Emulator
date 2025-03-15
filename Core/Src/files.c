@@ -56,51 +56,60 @@ result_t usb_has_files(void){
 void handleFS(void) {
     FRESULT res;
     if (getDriveStatus() == drive_inserted) {                // Drive present
-        for (uint8_t i = 0; i < 10; i++) {
+        for (uint8_t i = 0; i < 5; i++) {
             res = f_mount(fat, "", 1);
             if (res == FR_OK)
                 break;
         }
         if (res != FR_OK) {
-            iprintf("SYSTEM: Failed to mount volume\r\n");
+            putString("SYSTEM: Failed to mount volume\r\n");
             setDriveStatus(drive_error);                //Failure on mount
         }
         else {
-            iprintf("SYSTEM: Volume mounted\r\n");
-            for (uint8_t i = 0; i < 10; i++) {
+            putString("SYSTEM: Volume mounted\r\n");
+            for (uint8_t i = 0; i < 5; i++) {
                 res = f_chdir("/");
                 if (res == FR_OK)
                     break;
             }
             if (res != FR_OK) {
-                iprintf("SYSTEM: Failed to open root dir\r\n");
+                putString("SYSTEM: Failed to open root dir\r\n");
                 setDriveStatus(drive_error);                //Failure on mount
             }
             else {
-                iprintf("SYSTEM: Opened root folder\r\n");
+                putString("SYSTEM: Opened root folder\r\n");
                 setDriveStatus(drive_mounted);
             }
         }
     }
-    if (getDriveStatus() == drive_mounted) {
-        setDriveStatus(drive_ready);
-#ifdef USB_LOG
-    reset_usb_log();
-#endif
-        setFileStatus(file_none);           // FIXME: Handle file list update (
-        scanFS();                           // Find and count available folders/files // XXX: Filenames are not obtained yet, done in SortFS()
-        unilink_clear_backup_usb_position();    // New usb, clear existing backup
-        if(getAudioSource() == src_usb)
-            unilink_update_magazine();          // Update magazine so it matches the scan results
+    else if (getDriveStatus() == drive_mounted) {
+        setFileStatus(file_none);
+        setDriveStatus(drive_scanning);
+        FileStruct.scan_folder = 0;
+        FileStruct.usb_has_files = 0;
     }
+    else if (getDriveStatus() == drive_scanning) {  // Scan one folder at a time to avoid blocking the program for too long
+        scanFolder(FileStruct.scan_folder++);                                   // Find and count available folders/files. Filenames are not obtained yet, done in SortFS()
+        if(FileStruct.scan_folder>=FOLDERS){
+            setDriveStatus(drive_ready);
+        #ifdef USB_LOG
+            reset_usb_log();
+        #endif
+            unilink_clear_backup_usb_position();    // New usb, clear existing backup
+            if(getAudioSource() == src_usb)
+            unilink_update_magazine();          // Update magazine so it matches the scan results
+        }
+    }
+
+
 
     if ((getDriveStatus() == drive_error)
         || (getDriveStatus() == drive_removed)) {                // if drive removed or error
 
         if (getDriveStatus() == drive_error)
-            iprintf("SYSTEM: Drive error!\r\n");
+            putString("SYSTEM: Drive error!\r\n");
 
-        iprintf("SYSTEM: Removing mounting point\r\n");
+        putString("SYSTEM: Removing mounting point\r\n");
         f_mount(0, "", 1);                              // remove mount point
         setDriveStatus(drive_nodrive);
         FileStruct.usb_has_files = 0;
@@ -108,11 +117,11 @@ void handleFS(void) {
 }
 
 void iprintfiles(void) {
-    iprintf("File list:\r\n");
+    putString("File list:\r\n");
     for (uint8_t t = 0; t < FileStruct.fileCount[unilink_disc()- 1]; t++) {
         iprintf("\t%s\r\n", fileList[t]);
     }
-    iprintf("\r\n\r\n");
+    putString("\r\n\r\n");
 }
 
 void sortFS(void) {
@@ -159,26 +168,19 @@ void sortFS(void) {
     FileStruct.files_sorted = 1;
 }
 
-void scanFS(void) {
-    if(getDriveStatus() != drive_ready) return;
-    uint8_t c, i = 0;
-
-    FileStruct.usb_has_files = 0;
-    while (i < FOLDERS) {
-        FileStruct.fileCount[i] = 0;                        // Clear old value
-        c = 0;
-        for (uint8_t t = 0; t < FILETYPES; t++) {
-            f_findfirst(&dir, &fil, folders[i], filetypes[t]);                // Find first file of the current type
-            while (fil.fname[0] && c < MAXFILES) {                // Stop when no file found, last file or exceeded max file count
-                f_findnext(&dir, &fil);                        // Find next file
-                c++;
-            }
+void scanFolder(uint8_t folder) {
+    uint8_t count=0;
+    FileStruct.fileCount[folder] = 0;                        // Clear old value
+    for (uint8_t t = 0; t < FILETYPES; t++) {
+        f_findfirst(&dir, &fil, folders[folder], filetypes[t]);                // Find first file of the current type
+        while (fil.fname[0] && count < MAXFILES) {                // Stop when no file found, last file or exceeded max file count
+            f_findnext(&dir, &fil);                        // Find next file
+            count++;
         }
-        FileStruct.fileCount[i] = c;                 // Store found file count
-        if(c) FileStruct.usb_has_files = 1;
-        iprintf("%s: Found %3d files\r\n", folders[i], c);                // Debug number of files found in folder
-        i++;
     }
+    FileStruct.fileCount[folder] = count;                 // Store found file count
+    if(count) FileStruct.usb_has_files = 1;
+    iprintf("%s: Found %3d files\r\n", folders[folder], count);                // Debug number of files found in folder
 }
 
 uint8_t openFile(void) {
@@ -223,7 +225,7 @@ uint8_t openFile(void) {
     }
     if (f_open(file, (char*) fileList[unilink_track()- 1], FA_READ)
         != FR_OK) {                // Open file
-        iprintf("SYSTEM: Error opening file\r\n");
+        putString("SYSTEM: Error opening file\r\n");
         setDriveStatus(drive_error);                      // No files
         return FR_DISK_ERR;
     }
@@ -233,7 +235,7 @@ uint8_t openFile(void) {
 
     if (f_lseek(file, CREATE_LINKMAP) != FR_OK) {                // Create CLMT
         f_close(file);
-        iprintf("SYSTEM: FatFS Seek error\r\n");
+        putString("SYSTEM: FatFS Seek error\r\n");
         return FR_DISK_ERR;
     }
 #if   (_USE_LFN)
@@ -241,9 +243,9 @@ uint8_t openFile(void) {
   while(fil.fname[0] && strcmp(fil.altname, (char *)fileList[unilink_track()-1])!=0){                    // Stop when no file found, last file or exceeded max file count
     f_findnext(&dir, &fil);                                     // Find next file
   }
-  iprintf("SYSTEM: Opened file: %s\r\n", fil.fname);
+  putString("SYSTEM: Opened file: %s\r\n", fil.fname);
 #else
-    iprintf("SYSTEM: Opened file: %s\r\n", (char*) fileList[unilink_track()- 1]);
+  iprintf("SYSTEM: Opened file: %s\r\n", (char*) fileList[unilink_track()- 1]);
 #endif
     setAudioDecodeInfo(audio_stereo, audio_44KHz, audio_16bit);
     setFileStatus(file_opened);                         // Valid file
@@ -295,64 +297,64 @@ filetype_t getFileType(void){
  //strcpy(FileStruct.lastFile,"1.TXT");
 
  if((FileStruct.lastPath[0]!=0)&&(FileStruct.lastFile[0]!=0)){   // If stored path and file
- iprintf("Stored path: \"%s\"\r\n",FileStruct.lastPath);
- iprintf("Stored file: \"%s\"\r\n",FileStruct.lastFile);
+ putString("Stored path: \"%s\"\r\n",FileStruct.lastPath);
+ putString("Stored file: \"%s\"\r\n",FileStruct.lastFile);
  }
  else if( (FileStruct.lastFile[0]==0)||(FileStruct.lastPath[0]==0)){ // If any not stored, reset stored data
  FileStruct.lastFile[0]=0;
  FileStruct.lastPath[0]=0;
- iprintf("No previous stored file\r\n");
+ putString("No previous stored file\r\n");
  uint8_t i=0;
  while(i<6){
  if(fileCnt[i]){                  // search first CD folder with files
  strcpy(FileStruct.lastPath,paths[i]);           // store folder path
- iprintf("Found %3d files in \"%s\"\r\n",fileCnt[i],paths[i]);
+ putString("Found %3d files in \"%s\"\r\n",fileCnt[i],paths[i]);
  break;
  }
  i++;
  }
  if(FileStruct.lastPath[0]==0){
- iprintf("No files found in filesystem");           // No compatible files in the filesystem
+ putString("No files found in filesystem");           // No compatible files in the filesystem
  return FR_DISK_ERR;
  }
  }
  res = f_chdir(FileStruct.lastPath);               // Change dir
  if(res){
- iprintf("Error opening folder \"%s\"\r\n",FileStruct.lastPath);
+ putString("Error opening folder \"%s\"\r\n",FileStruct.lastPath);
  return FR_DISK_ERR;
  }
  if(FileStruct.lastFile[0]!=0){
  res = f_open(&fp, FileStruct.lastFile, FA_READ);        // Open stored file
  if(res==FR_OK){
 
- iprintf("Opened File: \"%s\"\r\n",FileStruct.lastFile);
+ putString("Opened File: \"%s\"\r\n",FileStruct.lastFile);
  fp.cltbl = clmt;
  clmt[0] = SZ_TBL;
  res = f_lseek(&fp, CREATE_LINKMAP);
  if(res){
- iprintf("Error creating linkmap\r\n");
+ putString("Error creating linkmap\r\n");
  return FR_DISK_ERR;
  }
- iprintf("Linkmap file created\r\n");
+ putString("Linkmap file created\r\n");
  return FR_OK;                       // OK, done here
  }
  else{
- iprintf("Error opening \"%s\"\r\n",FileStruct.lastFile);   // Error reading stored filenamew
+ putString("Error opening \"%s\"\r\n",FileStruct.lastFile);   // Error reading stored filenamew
  }
  }
  res = f_findfirst(&dp, &fno, FileStruct.lastPath, "*.MP3");       // Search first mp3 file
  if(res!=FR_OK){
- iprintf("Error: No files found\r\n");                // No files found
+ putString("Error: No files found\r\n");                // No files found
  return FR_DISK_ERR;                       // We should have files from previous scan
  }
  strcpy(FileStruct.lastFile,fno.fname);              // OK, store filename
- iprintf("Found  File: \"%s\"\r\n",fno.fname);
+ putString("Found  File: \"%s\"\r\n",fno.fname);
  res = f_open(&fp, FileStruct.lastFile, FA_READ);          // Open stored file
  if(res==FR_OK){
- iprintf("Opened File: \"%s\"\r\n",FileStruct.lastFile);
+ putString("Opened File: \"%s\"\r\n",FileStruct.lastFile);
  return FR_OK;
  }
- iprintf("Error opening \"%s\"\r\n",FileStruct.lastFile);   // Error
+ putString("Error opening \"%s\"\r\n",FileStruct.lastFile);   // Error
  return FR_DISK_ERR;
  }
  */

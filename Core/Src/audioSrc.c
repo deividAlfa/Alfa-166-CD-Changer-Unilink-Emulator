@@ -8,6 +8,8 @@
 #include "audioSrc.h"
 #include "audioDecode.h"
 #include "unilink.h"
+#include "serial.h"
+
 audioSrc_t audioSource;
 uint8_t aux_available, aux_available_last, usb_available;
 uint32_t aux_timer;
@@ -78,14 +80,14 @@ void setAudioSource(audioSrc_t new_src) {
     WritePin(AUX_EN, (audioSource == src_aux));
     WritePin(I2S_SEL, (audioSource == src_usb));
 
-    iprintf("Switch audio source: ");
+    putString("Switch audio source: ");
     if(audioSource==src_aux)
-        iprintf("Aux-in");
+        putString("Aux-in");
     else if(audioSource==src_bt)
-        iprintf("Bluetooth");
+        putString("Bluetooth");
     else if(audioSource==src_usb)
-        iprintf("USB");
-    iprintf("\r\n");
+        putString("USB");
+    putString("\r\n");
 }
 
 audioSrc_t getAudioSource(void) {

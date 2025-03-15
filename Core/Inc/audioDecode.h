@@ -61,7 +61,7 @@ typedef struct {
 } audioStruct_t;
 
 
-audioStatus_t getAudioStatus(void);
+audioStatus_t audio_status(void);
 void setAudioStatus(audioStatus_t s);
 
 result_t setDecoder(void *d);

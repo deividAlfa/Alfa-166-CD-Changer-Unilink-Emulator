@@ -28,6 +28,7 @@
 #include "files.h"
 #include "main.h"
 #include "audioDecode.h"
+#include "serial.h"
 
 /* USER CODE END Includes */
 
@@ -116,23 +117,23 @@ static void USBH_UserProcess  (USBH_HandleTypeDef *phost, uint8_t id)
   case HOST_USER_DISCONNECTION:
   Appli_state = APPLICATION_DISCONNECT;
   if(getDriveStatus()==drive_ready || getDriveStatus()==drive_mounted){
-    iprintf("USB: Removed while mounted\r\n");
+    putString("USB: Removed while mounted\r\n");
   }
   else{
-    iprintf("USB: Removed\r\n");
+    putString("USB: Removed\r\n");
   }
   setDriveStatus(drive_removed);
   break;
 
   case HOST_USER_CLASS_ACTIVE:
   Appli_state = APPLICATION_READY;
-  iprintf("USB: Active\r\n");
+  putString("USB: Active\r\n");
   setDriveStatus(drive_inserted);
   break;
 
   case HOST_USER_CONNECTION:
   Appli_state = APPLICATION_START;
-  iprintf("USB: Connected\r\n");
+  putString("USB: Connected\r\n");
   break;
 
   default:

@@ -17,20 +17,22 @@
 /*   Logging outputs. Can be enabled concurrently   */
 #define SWO_PRINT                                   // Print to SWO
 //#define UART_PRINT                                // Print to the uart
-//#define USB_LOG                                   // Print into a USB file
+#define USB_LOG                                   // Print into a USB file
 
 /*   Logging options   */
 #define UNILINK_LOG_ENABLE
-#define UNILINK_LOG_DETAILED                      // Enable to append command description to each decoded frame
+#define UNILINK_LOG_DETAILED                        // Enable to append command description to each decoded frame
 //#define UNILINK_LOG_TIMESTAMP                     // Add timestamps
 //#define UNILINK_LOG_FILTER      { cmd_time, cmd_goto }
 
 /*  Unilink protocol stuff */
-#define _MASTER_REQUEST_TIMEOUT_  10              // Timeout in ms waiting for master clock to start sending clocks for our answer. Critical, don't touch
-#define _BYTE_TIMEOUT_            1300            // Timeout in us between bytes in a frame. Critical, don't touch
-#define _RESET_TIMEOUT_           2000            // Timeout in ms without master clock when idle causing a warm reset
-#define _PWROFF_TIMEOUT_          10000           // Timeout in ms without master clock to release PWR_ON pin ans shut down (Ourselves)
-#define _DISCS_                   6               // Discs in the system
+#define _MASTER_REQUEST_TIMEOUT_  10                // Timeout in ms waiting for master clock to start sending clocks for our answer. Critical, don't touch
+#define _BYTE_TIMEOUT_            1300              // Timeout in us between bytes in a frame. Critical, don't touch
+#define _RESET_TIMEOUT_           2000              // Timeout in ms without master clock when idle causing a warm reset
+#define _PWROFF_TIMEOUT_          10000             // Timeout in ms without master clock to release PWR_ON pin ans shut down (Ourselves)
+#define _DISCS_                   6                 // Discs in the system
+#define _CHANGE_TRACK_DELAY_      1000              // Delay before playing after manually changing track
+#define _CHANGE_DISC_DELAY_       5000              // Delay before playing after manually changing disc
 
 
 #if defined (UNILINK_LOG_ENABLE) && !defined(SWO_PRINT) && !defined(UART_PRINT) && !defined(USB_LOG)

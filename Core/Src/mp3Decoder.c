@@ -8,6 +8,7 @@
 #include "audioDecode.h"
 #include "mp3Decoder.h"
 #include "spiritMP3Dec.h"
+#include "serial.h"
 #if defined AUDIO_SUPPORT
 #include "fatfs.h"
 
@@ -32,7 +33,7 @@ result_t readID3(void) {
     }
     if ((ID3TAG.id[0] != 'I') || (ID3TAG.id[1] != 'D')
         || (ID3TAG.id[2] != '3')) {
-        iprintf("MP3: ID3Tag not found\n");
+        putString("MP3: ID3Tag not found\n");
         f_lseek(getFile(), 0);                  // Seek to start of file
         return 0;
     }
@@ -48,12 +49,12 @@ result_t readID3(void) {
 result_t mp3Start(void) {
     readID3();
     if(setDecoder(_calloc(1, sizeof(TSpiritMP3Decoder))) != OK){
-        iprintf("MP3: Error allocating decoder!\n");
+        putString("MP3: Error allocating decoder!\n");
         return ERR;
     }
 
     if(setPCMbuffer(_malloc(MP3_PCM_Samples * 2)) != OK){                // *2 because 1sample = 16bits
-        iprintf("MP3: Error allocating Buffer!\n");
+        putString("MP3: Error allocating Buffer!\n");
         freeDecoder();
         return ERR;
     }

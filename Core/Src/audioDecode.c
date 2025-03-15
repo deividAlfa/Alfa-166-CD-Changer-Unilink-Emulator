@@ -10,6 +10,7 @@
 #include "wavDecoder.h"
 #include "unilink.h"
 #include "fatfs.h"
+#include "serial.h"
 
 #if defined AUDIO_SUPPORT
 
@@ -67,7 +68,7 @@ uint16_t getPCMsamples(void){
 void setAudioStatus(audioStatus_t s){
     AudioStruct.audioStatus = s;
 }
-audioStatus_t getAudioStatus(void){
+audioStatus_t audio_status(void){
     return AudioStruct.audioStatus;
 }
 
@@ -76,6 +77,16 @@ void initAudio(I2S_HandleTypeDef *hi2s) {
 }
 
 void handleAudio(void) {
+    if (getAudioSource()==src_usb && usb_has_files()) {
+        if (unilink_status() == unilink_playing) {
+            if (audio_status() == audio_pause)
+                AudioResume();
+            else if (audio_status() != audio_play)
+                AudioStart();
+        }
+        else if (audio_status() == audio_play)
+                AudioPause();
+    }
     if (AudioStruct.updateBuffer == 1) {
         AudioStruct.updateBuffer = 0;
         handleBuffer(0);                          // Refill first half
@@ -86,8 +97,8 @@ void handleAudio(void) {
     }
     if (AudioStruct.underflow) {
         AudioStruct.underflow = 0;
-        iprintf("AUDIO: Buffer underflow!\r\n");
-    }
+        putString("AUDIO: Buffer underflow!\r\n");
+    }/*
     if (AudioStruct.audioStatus != audio_play
         && getDriveStatus() == drive_ready
         && getFileStatus() == file_opened) {
@@ -97,6 +108,7 @@ void handleAudio(void) {
         && unilink_status() != unilink_playing) {                // If unilink stopped and audio is playing, stop playback
         AudioStop();
     }
+    */
 }
 #endif
 
@@ -123,7 +135,7 @@ void AudioStart(void) {
             break;
 
         default:
-            iprintf("AUDIO: Skipping unknown filetype!\r\n");
+            putString("AUDIO: Skipping unknown filetype!\r\n");
             AudioStop();
             return;
     }
@@ -150,7 +162,7 @@ void AudioStart(void) {
             AudioStruct.PCMSamples);                // Start I2S DMA
         AudioStruct.audioStatus = audio_play;				// Status = playing
     }
-    iprintf("AUDIO: Playback started\r\n");
+    putString("AUDIO: Playback started\r\n");
 #endif
 }
 
@@ -162,7 +174,7 @@ void AudioStop(void) {
         || AudioStruct.audioStatus == audio_pause) {
         HAL_I2S_DMAStop(i2sHandle);
         AudioStruct.audioStatus = audio_stop;                // Playback finished
-        iprintf("AUDIO: Playback stopped\r\n\r\n");
+        putString("AUDIO: Playback stopped\r\n\r\n");
     }
     if (AudioStruct.startDecoder && AudioStruct.stopDecoder) {
         AudioStruct.stopDecoder();
@@ -190,7 +202,7 @@ void AudioPause(void) {
     if (AudioStruct.audioStatus == audio_play) {
         HAL_I2S_DMAPause(i2sHandle);
         AudioStruct.audioStatus = audio_pause;                // Playback paused
-        iprintf("AUDIO: Playback paused\r\n\r\n");
+        putString("AUDIO: Playback paused\r\n\r\n");
     }
 #endif
 }
@@ -199,7 +211,7 @@ void AudioResume(void) {
     if (AudioStruct.audioStatus == audio_pause) {
         AudioStruct.audioStatus = audio_play;                // Status = playing
         HAL_I2S_DMAResume(i2sHandle);
-        iprintf("AUDIO: Playback resumed\r\n\r\n");
+        putString("AUDIO: Playback resumed\r\n\r\n");
     }
 #endif
 }
