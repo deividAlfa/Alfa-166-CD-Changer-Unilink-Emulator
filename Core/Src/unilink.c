@@ -96,13 +96,11 @@ void unilink_debug_stuff(void){
     if(unilink.force_stop){
         unilink.play=0;
         unilink.status=unilink_idle;
-        BT_Stop();
         unilink.force_stop=0;
     }
     if(unilink.force_play){
         unilink.play=1;
         unilink.status=unilink_playing;
-        BT_Play();
         unilink.force_play=0;
     }
 }
@@ -117,7 +115,7 @@ void unilink_handle(void) {
 
     if (unilink.update_time) {
         unilink.update_time = 0;
-        unilink_add_slave_break(cmd_time);
+        //unilink_add_slave_break(cmd_time);	// Not needed
     }
 
 #ifndef PASSIVE_MODE
@@ -373,9 +371,6 @@ void unilink_broadcast(void) {                             // BROADCAST COMMANDS
             break;
         case cmd_power:                                      // 0x87 Power Event
             if (unilink.rxData[cmd2] == cmd_pwroff) {                // 0x00 Power off
-                if(getAudioSource() == src_bt)
-                    BT_Stop();
-                AudioStop();
                 unilink.play = 0;
                 unilink.powered_on = 0;
                 unilink_set_status(unilink_idle);                // set idle status on power off
@@ -424,8 +419,6 @@ void unilink_myid_cmd(void) {
                     if (unilink.track >= cd_data[unilink.disc - 1].tracks)                // If current track is valid
                         unilink.track = 1;                  // Else, reset track
                     unilink.play = 1;
-                    if(getAudioSource() == src_bt)
-                        BT_Play();
                     unilink_send_status(unilink_playing);
                 }
                 else {
@@ -786,8 +779,8 @@ void unilink_add_slave_break(uint8_t command) {
         {
             uint8_t msg[] = msg_time;
             if(unilink.fake_change){
-                msg[4] = hex2bcd(unilink.fake_track);			// Send requested disc once to make ICS happy
-                msg[7] = ((unilink.fake_disc<<4)|0xA);			// Otherwise it'll keep asking for the disc over and over
+                msg[4] = hex2bcd(unilink.fake_track);           // Send requested disc once to make ICS happy
+                msg[7] = ((unilink.fake_disc<<4)|0xA);          // Otherwise it'll keep asking for the disc over and over
             }                                                   // Sending "Empty disc" cmd causes issues so this is a workaround
 
             unilink_create_msg(msg, (uint8_t*) slaveBreak.data[i]);
@@ -942,14 +935,10 @@ void unilink_handle_slave_break(void) {
 
 void unilink_slave_msg(void) {
     if (slaveBreak.pending == 0) {                // If empty queue, self-generate data
-        if(unilink.lastAutoStatus == cmd_status){
-            if(unilink.play)
-                unilink.lastAutoStatus = cmd_time;
-        }
+        if(unilink.play)
+            unilink_add_slave_break(cmd_time);
         else
-            unilink.lastAutoStatus = cmd_status;
-
-        unilink_add_slave_break(unilink.lastAutoStatus);
+            unilink_add_slave_break(cmd_status);
     }
     unilink.txSize = slaveBreak.data[slaveBreak.out][parity2_L + 2];
     for (uint8_t i = 0; i < unilink.txSize; i++)                // Copy stored slave break message to Tx Buffer

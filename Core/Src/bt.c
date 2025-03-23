@@ -96,18 +96,17 @@ void BT_handle_state(void) {
     if (BTStruct.bt_status!=bt_linked && BTStruct.bt_status!=bt_streaming)
         return;
 
-    if(getAudioSource() != src_bt && BTStruct.set_mode != bt_stop)       // If BT unselected, stop BT playback
+    if((getAudioSource() != src_bt || unilink_status() != unilink_playing) && BTStruct.set_mode != bt_stop)       // If BT unselected or unilink stopped, stop BT playback
         BTStruct.set_mode = bt_stop;
 
-    if(!BTStruct.button.busy){
-        if ((BTStruct.set_mode <= bt_stop || unilink_status() != unilink_playing) &&      // Set mode or unilink=stop, BT playing, force stop
-            BTStruct.bt_status == bt_streaming && !BTStruct.button.do_stop)
+    else if(getAudioSource() == src_bt && unilink_status() == unilink_playing && BTStruct.set_mode != bt_play)    // If BT selected and unilink playing, start BT playback
+        BTStruct.set_mode = bt_play;
 
+    if(!BTStruct.button.busy){
+        if (!BTStruct.button.do_stop && BTStruct.set_mode <= bt_stop && BTStruct.bt_status == bt_streaming)       // Set mode or unilink=stop, BT playing, force stop
             BTStruct.button.do_stop = 1;
 
-        if ((BTStruct.set_mode == bt_play && unilink_status() == unilink_playing) &&      // Set mode or unilink=play, BT stopped, force play
-            BTStruct.bt_status != bt_streaming && !BTStruct.button.do_play)
-
+        if (!BTStruct.button.do_play && BTStruct.set_mode == bt_play && BTStruct.bt_status != bt_streaming)       // Set mode and unilink=play, BT stopped, force play
             BTStruct.button.do_play = 1;
     }
 }

@@ -150,7 +150,6 @@ typedef struct {
     volatile unilinkStatus_t status;                // Stores unilink status
     volatile uint8_t ownAddr;                // Stores device address
     volatile uint8_t groupID;                // Stores group ID
-    volatile uint8_t lastAutoStatus;                // Stores last cmd sent by unilink_auto_status
     volatile uint8_t disc;                // Stores current disc
     volatile uint8_t track;                // Stores current track
     volatile uint8_t fake_disc;                // Stores fake disc for hackign the ICS when requesting an empty disc
@@ -199,7 +198,7 @@ typedef struct {
     SPI_HandleTypeDef *SPI;                // Stores the address of the SPI handler
 } unilink_t;
 
-#define _BREAK_QUEUE_SZ_             16				// Queue size. Increase if getting buffer full errors in the log.
+#define _BREAK_QUEUE_SZ_             16             // Queue size. Increase if getting buffer full errors in the log.
 typedef struct {
     uint8_t break_str;                // Only for passive mode, indicates we sent some break messages and we need to push a new line
     volatile uint8_t sample_time;                // For measuring data high/low states
