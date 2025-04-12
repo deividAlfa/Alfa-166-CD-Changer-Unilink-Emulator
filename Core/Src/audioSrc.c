@@ -11,7 +11,7 @@
 #include "serial.h"
 
 audioSrc_t audioSource;
-uint8_t aux_available, aux_available_last, usb_available;
+uint8_t aux_available=1, aux_available_last, usb_available;   // Preset aux to 1, so it automatically exits if the system resumes aux mode at boot but it's not connected anymore
 uint32_t aux_timer;
 
 void monitorAudioSource(void){
@@ -22,7 +22,7 @@ void monitorAudioSource(void){
 
     if(!usb_available && usb_has_files()){
         usb_available = 1;
-        if(now>10000 && current != src_usb)
+        if(now>5000 && current != src_usb)                      // Ignore source changes for the first 5 seconds (Settling down)
             setAudioSource(src_usb);
     }
     else if(usb_available && usb_has_files() == 0){
@@ -37,15 +37,11 @@ void monitorAudioSource(void){
     }
     else if (aux_available != aux_available_last && (HAL_GetTick()-aux_timer)>500){
         aux_available = aux_available_last;
-
-        if(now>5000){
-            if(aux_available && current != src_aux)
-                setAudioSource(src_aux);
-            else if(!aux_available && current == src_aux)
-                setAudioSource(src_auto);
-        }
+        if(aux_available && current != src_aux)
+            setAudioSource(src_aux);
+        else if(!aux_available && current == src_aux)
+            setAudioSource(src_auto);
     }
-
 }
 
 void setAudioSource(audioSrc_t new_src) {
