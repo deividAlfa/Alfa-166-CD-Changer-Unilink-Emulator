@@ -63,21 +63,6 @@ UART_HandleTypeDef huart1;
 DMA_HandleTypeDef hdma_memtomem_dma2_stream0;
 /* USER CODE BEGIN PV */
 
-#ifdef DEBUG_ALLOC
-extern const unsigned int _Min_Heap_Size;
-unsigned int _heap_size = (unsigned int) (&_Min_Heap_Size);
-struct mallinfo mi;
-uint32_t max_allocated;
-#endif
-/*
- input_t button = {
- .port=BTN_GPIO_Port,
- .pin=BTN_Pin,
- .debounce_time=200,
- .edge_detect=1,
- .edge_type=0
- };
- */
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -94,11 +79,34 @@ void MX_USB_HOST_Process(void);
 
 /* USER CODE BEGIN PFP */
 
-#ifdef DEBUG_ALLOC
+extern const unsigned int _Min_Heap_Size;
+unsigned int _heap_size = (unsigned int) (&_Min_Heap_Size);
+
+#ifdef DEBUG_HEAP
+struct mallinfo mi;
+uint32_t max_allocated;
+
 void debug_heap(void) {
     mi = mallinfo();
     if (mi.uordblks > max_allocated)
         max_allocated = mi.uordblks;
+
+    iprintf("HEAP    Used:%u    Free:%u\r\n", mi.uordblks, mi.fordblks);
+}
+void * _calloc(size_t n, size_t s){
+    void * p = calloc(n, s);
+    debug_heap();
+    return(p);
+}
+
+void * _malloc(size_t s){
+    void * p = malloc(s);
+    debug_heap();
+    return(p);
+}
+void _free(void *p){
+    free(p);
+    debug_heap();
 }
 #endif
 
@@ -125,15 +133,16 @@ short **bfb = &bfa;
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
-#ifdef DEBUG_ALLOC
-    uint8_t *mall = malloc(_heap_size);                // Allocate all the heap possible and then free it. Now the system knows the heap size, and won't cause internal fragmentation.
-    if (mall == NULL) {
-        Error_Handler();                   // Failed to allocate heap
+    uint8_t *mall;
+    uint32_t i=128U*1024;
+    for (; i; i-=128){
+        mall = malloc(i);                // Allocate all the heap possible and then free it. Now the system knows the heap size, and won't cause internal fragmentation.
+        if (mall) break;
     }
+    if(mall==NULL || i<(_heap_size))      // Failed to allocate or low in memory
+        Error_Handler();
     free(mall);
-    mi = mallinfo();
-#endif
+
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/

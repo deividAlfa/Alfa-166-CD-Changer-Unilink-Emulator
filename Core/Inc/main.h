@@ -70,14 +70,12 @@ extern DMA_HandleTypeDef hdma_memtomem_dma2_stream0;
 
 
 
-#ifdef DEBUG_ALLOC
+#ifdef DEBUG_HEAP
 extern uint32_t        max_allocated;
 extern struct mallinfo mi;
-
-#define _malloc(x)    malloc(x); debug_heap()
-#define _calloc(x,y)  calloc(x,y); debug_heap()
-#define _free(x)      free(x); debug_heap()
-
+void * _calloc(size_t s, size_t n);
+void * _malloc(size_t s);
+void _free(void *p);
 void debug_heap(void);
 
 #else
