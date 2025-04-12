@@ -183,13 +183,6 @@ typedef struct {
             uint8_t mode :1;                // SPI transfer mode (1=rx, 0=tx)
             uint8_t fake_change :1;       // Hack to bypass empty disc request from ICS
             uint8_t changing :1;       // Flag set when changed disc or track, used introduce a delay before starting playback (The ICS waits few seconds to enable the audio)
-            uint8_t disable_timeout :1;       // Hack to bypass master timeout (For debugging) // TODO: Remove this
-            uint8_t force_play :1;       // Hack  (For debugging) // TODO: Remove this
-            uint8_t force_stop :1;       // // TODO: Remove this
-            uint8_t force_bt :1;       // // TODO: Remove this
-            uint8_t force_bt_next :1;       // // TODO: Remove this
-            uint8_t force_usb :1;       // // TODO: Remove this
-            uint8_t force_aux :1;       // // TODO: Remove this
         };
     };
     uint32_t off_time;                      // Stores the time when the ICS disabled the CD, used to detect quick disable/enable sequence to perform source switching

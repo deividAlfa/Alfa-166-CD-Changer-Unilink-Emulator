@@ -231,13 +231,6 @@ void unilink_update_magazine(void) {                // usb was inserted, removed
     if (!unilink.masterinit)
         return;
     AudioStop();
-    /*
-    unilink_send_status(unilink_ejecting);                                                        // Refresh the ICS by ejecting/inserting
-    unilink_send_cartridge_status(mag_inserted);
-    unilink_send_status(unilink_changing);
-    unilink_send_status(unilink_changed);
-    unilink.pendingReset = 1;                     // XXX: Instead messing with the protocol, issue a warm reset so the ICS reinitializes the bus
-    */
     unilink_reset_playback_time();
     unilink.play = 0;                   // Don't go into play mode automatically
 #endif
@@ -1121,7 +1114,7 @@ static void flashTrackInit(void) //call it only once during init
 
 static void flashTrackHandle(void){
 
-    if(HAL_GetTick()<10000) return;             // Ignore first 10 seconds after boot to let everything settle down
+    if(HAL_GetTick()<5000) return;             // Ignore first 5 seconds after boot to let everything settle down
 
     flash_save_t new;
     new.source = getAudioSource();
@@ -1143,7 +1136,7 @@ static void flashTrackHandle(void){
        setAudioSource(src_bt) ;
 }
 
-void flashTrackRestoreFromFlash(void){            // FIXME : Not working when booting in Bt mode
+void flashTrackRestoreFromFlash(void){
     unilink.usb_disc = flash_last.usb_disc;
     unilink.usb_track = flash_last.usb_track;
 }
