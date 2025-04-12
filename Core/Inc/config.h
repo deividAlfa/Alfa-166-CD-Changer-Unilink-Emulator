@@ -12,7 +12,7 @@
 #define AUDIO_SUPPORT
 #define BT_SUPPORT
 //#define PASSIVE_MODE                              // Only sniff the bus, passive operation
-//#define DEBUG_ALLOC                               // To debug heap usage. See _malloc, _calloc, _free in main.h
+//#define DEBUG_HEAP                                  // To debug heap usage. See _malloc, _calloc, _free in main.h
 
 /*   Logging outputs. Can be enabled concurrently   */
 #define SWO_PRINT                                   // Print to SWO
