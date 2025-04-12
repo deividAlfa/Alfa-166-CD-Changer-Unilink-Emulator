@@ -27,26 +27,18 @@ void BT_handle(void) {
 }
 
 void BT_decode_status(void) {                                         // Read BT module outputs
-    uint8_t bt_state_now = ~(0xF8 |
-        ((uint8_t) !ReadPin(BT_1V8)  <<0)     |
-        ((uint8_t) ReadPin(BT_LED0) <<1)     |
-        ((uint8_t) ReadPin(BT_LED1) <<2)     );
-
+    uint8_t bt_state_now = (ReadPin(BT_1V8)) | ((uint8_t)!ReadPin(BT_LED0)<<1) | ((uint8_t)!ReadPin(BT_LED1)<<2);   // Leds are active-low
     uint32_t now = HAL_GetTick();
-
     if (bt_state_now == BTStruct.readState.last) {
-        if ((bt_state_now != BTStruct.readState.stable) && (now > BTStruct.readState.time)) {
+        if ((bt_state_now != BTStruct.readState.stable) && (now > BTStruct.readState.time))
             BTStruct.readState.stable = bt_state_now;
-        }
     }
-    else {
+    else
         BTStruct.readState.time = now + _BT_DEBOUNCE_TIME;                // 20ms without changes to consider stable
-    }
     BTStruct.readState.last = bt_state_now;
 }
 
 void BT_handle_state(void) {
-
     if (BTStruct.bt_status == bt_off){
         SetPinOtype(BT_STOP, OUTPUT_OD);
         SetPinOtype(BT_PLAY, OUTPUT_OD);
@@ -79,18 +71,14 @@ void BT_handle_state(void) {
         }
     }
     else if(BTStruct.bt_status & bt_on){
-        if((BTStruct.readState.stable & bt_on)==bt_off){
+        if((BTStruct.readState.stable & bt_on)==bt_off)
             BTStruct.bt_status = bt_off;
-        }
-        else if((BTStruct.readState.stable & bt_mask)==bt_on){
+        else if((BTStruct.readState.stable & bt_mask)==bt_on)
             BTStruct.bt_status = bt_on;
-        }
-        else if((BTStruct.readState.stable & bt_mask)==bt_linked){
+        else if((BTStruct.readState.stable & bt_mask)==bt_linked)
             BTStruct.bt_status = bt_linked;
-        }
-        else if((BTStruct.readState.stable & bt_mask)==bt_streaming){
+        else if((BTStruct.readState.stable & bt_mask)==bt_streaming)
             BTStruct.bt_status = bt_streaming;
-        }
     }
 
     if (BTStruct.bt_status!=bt_linked && BTStruct.bt_status!=bt_streaming)
@@ -113,99 +101,61 @@ void BT_handle_state(void) {
 
 void BT_handle_buttons(void) {
     uint32_t now = HAL_GetTick();
-    if (BTStruct.button.off_time && ((now - BTStruct.button.off_time)>_BT_OFF_TIME)) {
+    if (BTStruct.button.off_time){
+        if( (BTStruct.button.do_stop && (BTStruct.button.do_next || BTStruct.button.do_prev) && (now - BTStruct.button.off_time)< _BT_STOP_SKIP_TIME_) ||
+            ((now - BTStruct.button.off_time)< _BT_OFF_TIME))                                                                                               // Button OFF time not done, return
+            return;
+
         BTStruct.button.off_time = 0;
-#ifdef BT_SKIP_FIX_TIME
-    if(BTStruct.button.do_stop_skip){                                     // We stopped before changing
-      BTStruct.button.do_stop_skip=0;
-      BTStruct.button.on_time = now+_BT_ON_TIME;
 
-      if(BTStruct.button.do_next)                                         // Change
-        SetPinHigh(BT_NEXT);
-      else if(BTStruct.button.do_prev)
-        SetPinHigh(BT_PREV);
+        if ( (BTStruct.button.repeat  || BTStruct.button.do_stop) &&                            // Next/prev after stop, or repeat pending
+             (BTStruct.button.do_next || BTStruct.button.do_prev)) {
 
-      return;
-    }
-    else
-#endif
-        if (BTStruct.button.do_next || BTStruct.button.do_prev) {                // Change done
-            if (BTStruct.button.repeat) {                                   // Repeat?
-                BTStruct.button.on_time = now;
-                BTStruct.button.repeat--;
-                if (BTStruct.button.repeat_cmd == bt_next) {                // Keep skipping
-                    SetPinHigh(BT_NEXT);
-                }
-                else if (BTStruct.button.repeat_cmd == bt_prev) {
-                    SetPinHigh(BT_PREV);
-                }
-                return;
-            }
-            else {
-                BTStruct.button.do_next = 0;                              // Skip done
-                BTStruct.button.do_prev = 0;
-#ifdef BT_SKIP_FIX_TIME
-        BTStruct.button.do_stop_afterskip=1;
-        SetPinHigh(BT_STOP);
-#endif
-            }
-#ifdef BT_SKIP_FIX_TIME
-      return;
-#endif
+            if(BTStruct.button.do_stop)
+                BTStruct.button.do_stop = 0;                                                    // Skip pending after stop
+            else
+                BTStruct.button.repeat--;                                                       // Repeat pending
+
+            BTStruct.button.on_time = now;
+            if (BTStruct.button.do_next)                                                        // Execute pending skip
+                SetPinHigh(BT_NEXT);
+            else if (BTStruct.button.do_prev)
+                SetPinHigh(BT_PREV);
+            return;
         }
-#ifdef BT_SKIP_FIX_TIME
-    else if(BTStruct.button.do_stop_afterskip){
-      BTStruct.button.do_stop_afterskip=0;
-      if(BTStruct.set_mode==bt_play){                                    // Resume after skipping
-        BTStruct.button.on_time = now;
-        SetPinHigh(BT_PLAY);
-      }
-      return;
+        BTStruct.button.flags = 0;                                                              // Nothing left
     }
-#endif
-        BTStruct.button.busy = 0;
-        BTStruct.button.do_stop = 0;
-        BTStruct.button.do_play = 0;
-    }
-    else if (BTStruct.button.on_time && ((now-BTStruct.button.on_time)>_BT_ON_TIME)) {
-        BTStruct.button.on_time = 0;
-#ifdef BT_SKIP_FIX_TIME
-    if(BTStruct.button.do_stop_afterskip)
-      BTStruct.button.off_time = now;               // Wait before resuming playback for ICS to unmute
-    else
-#endif
+    else if (BTStruct.button.on_time){
+        if((now-BTStruct.button.on_time)<_BT_ON_TIME)                                           // Button ON time not done, return
+            return;
+        BTStruct.button.on_time = 0;                                                            // Proceed with OFF time
         BTStruct.button.off_time = now;
-
-        SetPinLow(BT_PLAY);
+        SetPinLow(BT_PLAY);                                                                     // Release all keys
         SetPinLow(BT_STOP);
         SetPinLow(BT_NEXT);
         SetPinLow(BT_PREV);
     }
 
-    if (BTStruct.button.busy || (BTStruct.readState.stable & bt_mask)<bt_linked)
+    if (BTStruct.button.busy || (BTStruct.readState.stable & bt_mask)<bt_linked)                // Button busy or not linked, return
         return;
-#ifdef BT_SKIP_FIX_TIME
-  BTStruct.button.do_stop_skip = (BTStruct.button.do_next || BTStruct.button.do_prev);       // Stop before changing track to avoid annoying issue with the ICS where the current song keeps playing for a moment
-#else
-    if (BTStruct.button.do_next) {
-        SetPinHigh(BT_NEXT);
-        BTStruct.button.on_time = now;
-        BTStruct.button.busy = 1;
-    }
-    else if (BTStruct.button.do_prev) {
-        SetPinHigh(BT_PREV);
-        BTStruct.button.on_time = now;
-        BTStruct.button.busy = 1;
-    }
-    else
-#endif
-    if (BTStruct.button.do_stop_skip || BTStruct.button.do_stop) {
+
+    if (BTStruct.button.do_stop) {                                                              // Pending STOP
         SetPinHigh(BT_STOP);
         BTStruct.button.on_time = now;
         BTStruct.button.busy = 1;
     }
-    else if (BTStruct.button.do_play) {
+    else if (BTStruct.button.do_play) {                                                         // Pending PLAY
         SetPinHigh(BT_PLAY);
+        BTStruct.button.on_time = now;
+        BTStruct.button.busy = 1;
+    }
+    else if (BTStruct.button.do_next) {                                                         // Pending NEXT
+        SetPinHigh(BT_NEXT);
+        BTStruct.button.on_time = now;
+        BTStruct.button.busy = 1;
+    }
+    else if (BTStruct.button.do_prev) {                                                         // Pending PREV
+        SetPinHigh(BT_PREV);
         BTStruct.button.on_time = now;
         BTStruct.button.busy = 1;
     }
@@ -234,33 +184,33 @@ void BT_Play(void) {
 
 void BT_Next(void) {
 #if defined BT_SUPPORT
-    if (BTStruct.button.do_next && BTStruct.button.repeat_cmd == bt_next) {
+    if (BTStruct.button.do_next) {
         BTStruct.button.repeat++;
         putString("BT_NEXT(R)\r\n");
     }
     else {
+        BTStruct.button.flags = 0;
         BTStruct.button.repeat = 0;
+        BTStruct.button.do_stop = 1;            // Stop playback before changing (To avoid unwanted sound when the ICS unmutes)
+        BTStruct.button.do_next = 1;
         putString("BT_NEXT\r\n");
     }
-    BTStruct.button.repeat_cmd = bt_next;
-    BTStruct.button.flags = 0;
-    BTStruct.button.do_next = 1;
 #endif
 }
 
 void BT_Prev(void) {
 #if defined BT_SUPPORT
-    if (BTStruct.button.do_prev && BTStruct.button.repeat_cmd == bt_prev) {
+    if (BTStruct.button.do_prev) {
         BTStruct.button.repeat++;
         putString("BT_PREV(R)\r\n");
     }
     else {
+        BTStruct.button.flags = 0;
         BTStruct.button.repeat = 0;
+        BTStruct.button.do_stop = 1;            // Stop playback before changing
+        BTStruct.button.do_prev = 1;
         putString("BT_PREV\r\n");
     }
-    BTStruct.button.repeat_cmd = bt_prev;
-    BTStruct.button.flags = 0;
-    BTStruct.button.do_prev = 1;
 #endif
 }
 

@@ -10,10 +10,10 @@
 
 #include "main.h"
 
-#define _BT_ON_TIME         10   // In ms. For button outputs.
-#define _BT_OFF_TIME        800
-#define _BT_DEBOUNCE_TIME   5  // For inputs
-//#define BT_SKIP_FIX_TIME
+#define _BT_ON_TIME         10      // Button active time in ms.
+#define _BT_OFF_TIME        800     // Button release time in ms.
+#define _BT_STOP_SKIP_TIME_ 2000    // Button release time in ms, special case for stop-skip action, increased delay, needed to wait for ICS to unmute after skipping tracks
+#define _BT_DEBOUNCE_TIME   5       // For inputs reading status LEDFs
 
 typedef enum {
     bt_off          = 0,
@@ -39,17 +39,14 @@ typedef struct {
     union {
         uint8_t flags;
         struct {
-            unsigned do_play :1;
-            unsigned do_stop :1;
-            unsigned do_stop_skip :1;
-            unsigned do_next :1;
-            unsigned do_prev :1;
-            unsigned do_stop_afterskip :1;
-            unsigned busy :1;
+            uint8_t do_play :1;
+            uint8_t do_stop :1;
+            uint8_t do_next :1;
+            uint8_t do_prev :1;
+            uint8_t busy :1;
         };
     };
     uint8_t repeat;
-    uint8_t repeat_cmd;
     uint32_t on_time;
     uint32_t off_time;
 } bt_button_t;
