@@ -9,9 +9,9 @@
 #define INC_FILES_H_
 #include "main.h"
 
-#define MAXFILES  98            // The original charger reports 99 tracks for empty discs
-#define FILETYPES 2
-#define FOLDERS   _DISCS_
+#define _MAXFILES_  98            // The original charger reports 99 tracks for empty discs
+#define _FILETYPES_ 2
+#define _FOLDERS_   _DISCS_
 
 typedef enum {
     drive_nodrive = 0,                // No drive on system
@@ -46,7 +46,7 @@ typedef struct {
     //uint32_t lastFsSize;
     char lastFolder[6];                // Ex. "/CD01"
     char lastFile[13];                // Ex "SONG01~1.MP3"
-    uint8_t fileCount[FOLDERS];                // File count for each folder
+    uint8_t fileCount[_FOLDERS_];                // File count for each folder
 } fileStruct_t;
 
 void initFS(void);

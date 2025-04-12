@@ -363,7 +363,7 @@ static void MX_IWDG_Init(void)
   /* USER CODE END IWDG_Init 1 */
   hiwdg.Instance = IWDG;
   hiwdg.Init.Prescaler = IWDG_PRESCALER_256;
-  hiwdg.Init.Reload = 100;
+  hiwdg.Init.Reload = 625;
   if (HAL_IWDG_Init(&hiwdg) != HAL_OK)
   {
     Error_Handler();
@@ -614,6 +614,8 @@ void Error_Handler(void)
     /* User can add his own implementation to report the HAL error return state */
     __disable_irq();
     putString("\r\nERROR HANDLER\r\n");
+    flashTrackSetDefaults();                    // Something weird happened, erase flash settings just in case
+    NVIC_SystemReset();                         // Reset system.
     while (1) {
     }
   /* USER CODE END Error_Handler_Debug */

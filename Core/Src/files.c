@@ -19,9 +19,9 @@ FATFS *fat;                // Pointer to FAT
 FIL *file;                // Pointer to file
 DWORD clmt[32];
 
-char fileList[MAXFILES][13];
-const char *filetypes[FILETYPES] = { "*.MP3", "*.WAV" };                // Files we are interested in
-const char *folders[FOLDERS] = { "/CD01", "/CD02", "/CD03", "/CD04", "/CD05","/CD06" };                // Folder names
+char fileList[_MAXFILES_][13];
+const char *filetypes[_FILETYPES_] = { "*.MP3", "*.WAV" };                // Files we are interested in
+const char *folders[_FOLDERS_] = { "/CD01", "/CD02", "/CD03", "/CD04", "/CD05","/CD06" };                // Folder names
 
 extern FIL USBHFile;
 extern FATFS USBHFatFS;
@@ -39,7 +39,7 @@ void removeDrive(void) {
 
 result_t gen_usb_discinfo(void){
     result_t have_files = ERR;
-    for (uint8_t i = 0; i < FOLDERS; i++) {                // Transfer file count to cd info (for unilink)
+    for (uint8_t i = 0; i < _FOLDERS_; i++) {                // Transfer file count to cd info (for unilink)
         if (FileStruct.fileCount[i]) {
             cd_data[i].tracks = FileStruct.fileCount[i];
             cd_data[i].mins = 99;
@@ -90,14 +90,16 @@ void handleFS(void) {
     }
     else if (getDriveStatus() == drive_scanning) {  // Scan one folder at a time to avoid blocking the program for too long
         scanFolder(FileStruct.scan_folder++);                                   // Find and count available folders/files. Filenames are not obtained yet, done in SortFS()
-        if(FileStruct.scan_folder>=FOLDERS){
+        if(FileStruct.scan_folder>=_FOLDERS_){
             setDriveStatus(drive_ready);
         #ifdef USB_LOG
             reset_usb_log();
         #endif
-            unilink_clear_backup_usb_position();    // New usb, clear existing backup
-            if(getAudioSource() == src_usb)
-            unilink_update_magazine();          // Update magazine so it matches the scan results
+            //unilink_clear_backup_usb_position();    // New usb, clear existing backup
+            if(getAudioSource() == src_usb){
+                flashTrackRestoreFromFlash();
+                unilink_update_magazine();          // Update magazine so it matches the scan results
+            }
         }
     }
 
@@ -134,7 +136,7 @@ void sortFS(void) {
     uint32_t Min;
     uint8_t c = 0;
     strcpy(FileStruct.lastFolder, folders[unilink_disc()- 1]);
-    for (uint8_t t = 0; t < FILETYPES; t++) {
+    for (uint8_t t = 0; t < _FILETYPES_; t++) {
         res = f_findfirst(&dir, &fil, folders[unilink_disc()- 1], filetypes[t]);                // Find first file of the current type in current folder (unilink disc)
         if (res != FR_OK) {
             continue;
@@ -171,9 +173,9 @@ void sortFS(void) {
 void scanFolder(uint8_t folder) {
     uint8_t count=0;
     FileStruct.fileCount[folder] = 0;                        // Clear old value
-    for (uint8_t t = 0; t < FILETYPES; t++) {
+    for (uint8_t t = 0; t < _FILETYPES_; t++) {
         f_findfirst(&dir, &fil, folders[folder], filetypes[t]);                // Find first file of the current type
-        while (fil.fname[0] && count < MAXFILES) {                // Stop when no file found, last file or exceeded max file count
+        while (fil.fname[0] && count < _MAXFILES_) {                // Stop when no file found, last file or exceeded max file count
             f_findnext(&dir, &fil);                        // Find next file
             count++;
         }
@@ -199,8 +201,8 @@ uint8_t openFile(void) {
         currentType[3] = *namePtr++;
         currentType[4] = *namePtr;
 
-        for (uint8_t t = 0; t <= FILETYPES; t++) {                    // Compare
-            if (t >= FILETYPES) {
+        for (uint8_t t = 0; t <= _FILETYPES_; t++) {                    // Compare
+            if (t >= _FILETYPES_) {
                 return 0;
             }                    // Exceeded filetypes (Unknown file extension!)
 #if   (_USE_LFN)

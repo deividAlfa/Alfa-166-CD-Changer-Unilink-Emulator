@@ -20,9 +20,9 @@ void monitorAudioSource(void){
     audioSrc_t current = audioSource;
     uint8_t aux = !ReadPin(AUX_DET);
 
-    if(current != src_usb && !usb_available && usb_has_files()){
+    if(!usb_available && usb_has_files()){
         usb_available = 1;
-        if(now>5000)
+        if(now>10000 && current != src_usb)
             setAudioSource(src_usb);
     }
     else if(usb_available && usb_has_files() == 0){

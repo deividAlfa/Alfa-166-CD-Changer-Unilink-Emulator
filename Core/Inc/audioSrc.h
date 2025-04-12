@@ -11,7 +11,7 @@
 #include "main.h"
 
 typedef enum {
-    src_aux = 0, src_i2s = 1, src_bt = src_i2s|2, src_usb = src_i2s|4, src_auto=0x80
+    src_aux = 0, src_i2s = 2, src_bt = src_i2s|0, src_usb = src_i2s|1, src_auto=4
 } audioSrc_t;
 void monitorAudioSource(void);
 void setAudioSource(audioSrc_t new_src);

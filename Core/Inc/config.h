@@ -17,7 +17,7 @@
 /*   Logging outputs. Can be enabled concurrently   */
 #define SWO_PRINT                                   // Print to SWO
 //#define UART_PRINT                                // Print to the uart
-#define USB_LOG                                   // Print into a USB file
+//#define USB_LOG                                   // Print into a USB file. Buggy, better don't use!
 
 /*   Logging options   */
 #define UNILINK_LOG_ENABLE

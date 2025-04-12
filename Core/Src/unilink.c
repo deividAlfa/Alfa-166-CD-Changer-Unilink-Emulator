@@ -54,13 +54,17 @@ void unilink_create_msg(uint8_t *msg, volatile uint8_t *dest);                //
  void unilink_shuffle(bool isOn);
  */
 
-void unilink_init(SPI_HandleTypeDef *SPI, TIM_HandleTypeDef *tim) {
+static void flashTrackWrite(void);
+static void flashTrackInit(void);
+static void flashTrackHandle(void);
 
+void unilink_init(SPI_HandleTypeDef *SPI, TIM_HandleTypeDef *tim) {
+    flashTrackInit();
     unilink.timer = tim;
     unilink.SPI = SPI;
-
     mag_data.status = mag_inserted;
-    unilink_update_magazine();
+    mag_data.cmd2 = mag_full;
+    //unilink_update_magazine();
     SetPinLow(UNILINK_DATA);                // Set DATA Output latch low (Doesn't affect when GPIO is set to input or SPI mode)
     unilink_cold_reset();
     __HAL_TIM_SET_AUTORELOAD(unilink.timer, _BYTE_TIMEOUT_);
@@ -107,6 +111,8 @@ void unilink_debug_stuff(void){
 
 void unilink_handle(void) {
 
+    flashTrackHandle();
+
     unilink_debug_stuff();
     if(unilink.changing && (HAL_GetTick()>unilink.change_delay)){
         unilink.changing = 0;
@@ -115,7 +121,7 @@ void unilink_handle(void) {
 
     if (unilink.update_time) {
         unilink.update_time = 0;
-        //unilink_add_slave_break(cmd_time);	// Not needed
+        unilink_add_slave_break(cmd_time);	// Update playback time
     }
 
 #ifndef PASSIVE_MODE
@@ -374,7 +380,7 @@ void unilink_broadcast(void) {                             // BROADCAST COMMANDS
                 unilink.play = 0;
                 unilink.powered_on = 0;
                 unilink_set_status(unilink_idle);                // set idle status on power off
-                unilink_reset_playback_time();
+                AudioPause();
                 unilink.off_time = HAL_GetTick();
             }
             else if (unilink.rxData[cmd2] == cmd_pwron) {                // 0x89 Power on (Unused?)
@@ -448,6 +454,8 @@ void unilink_myid_cmd(void) {
                 uint32_t off_elapsed = now - unilink.off_time;
                 uint32_t src_elapsed = now - unilink.src_time;
                 if(src_elapsed>3000 && off_elapsed>1000 && off_elapsed<3000){  // Quick disable/enable sequence,switch source
+                    AudioStop();
+                    unilink_reset_playback_time();
                     unilink.src_time = now;
                     setAudioSource(src_auto);
                 }
@@ -740,8 +748,15 @@ void unilink_backup_usb_position(void){
     unilink.usb_track=unilink.track;
 }
 void unilink_restore_usb_position(void){
-    unilink.disc = (unilink.usb_disc>0 ? unilink.usb_disc : 1);     // Fallback to disc/track 1 if empty
-    unilink.track = (unilink.usb_track>0 ? unilink.usb_track : 1);
+    if(unilink.usb_disc  && unilink.usb_disc < _DISCS_ &&
+       unilink.usb_track && unilink.usb_track < _MAXFILES_){
+      unilink.disc = unilink.usb_disc;
+      unilink.track = unilink.usb_track;
+    }
+    else{
+      unilink.disc = 1;
+      unilink.track = 1;
+    }
 }
 void unilink_clear_backup_usb_position(void){
     unilink.usb_disc=0;
@@ -1043,3 +1058,123 @@ void unilink_callback(void) {
     }
 }
 
+uint32_t flash_index;
+
+typedef union {
+    uint16_t data;
+    struct{
+        uint8_t usb_track :8;
+        uint8_t usb_disc :4;
+        uint8_t source :4;
+    };
+} flash_save_t ;
+
+#define _FLASH_SAVE_SZ_ (128UL*1024/sizeof(flash_save_t))
+flash_save_t flash_last;
+__attribute__((section(".flashSettings"))) flash_save_t flash_save[_FLASH_SAVE_SZ_];
+
+static void flashTrackWrite(void)
+{
+  uint32_t _irq = __get_PRIMASK();
+  __disable_irq();
+
+  HAL_FLASH_Unlock();
+  __set_PRIMASK(_irq);
+
+  if(HAL_FLASH_Program(FLASH_TYPEPROGRAM_HALFWORD, (uint32_t)&flash_save[flash_index], flash_last.data ) != HAL_OK)
+    Error_Handler();
+  HAL_FLASH_Lock();
+  flash_index++;
+}
+
+static void flashTrackErase(void)
+{
+  uint32_t error = 0;
+  FLASH_EraseInitTypeDef erase = {
+      .TypeErase   = FLASH_TYPEERASE_SECTORS,
+      .Banks = 0,
+      .Sector = FLASH_SECTOR_7,
+      .NbSectors = 1,
+      .VoltageRange =  FLASH_VOLTAGE_RANGE_3
+  };
+
+  uint32_t _irq = __get_PRIMASK();
+  __disable_irq();
+  HAL_FLASH_Unlock();
+  __set_PRIMASK(_irq);
+
+  if((HAL_FLASHEx_Erase(&erase, &error)!=HAL_OK) || (error != UINT32_MAX))
+     Error_Handler();
+  HAL_FLASH_Lock();
+
+  for (uint32_t i = 0u; i < _FLASH_SAVE_SZ_; i++) {        // Ensure flash was erased
+    if((volatile uint16_t)flash_save[i].data != UINT16_MAX)
+      Error_Handler();
+  }
+  flash_index = 0;
+  flashTrackWrite();
+}
+
+void flashTrackSetDefaults(void){
+    flash_last.source = src_bt;
+    flash_last.usb_disc = 0;
+    flash_last.usb_track = 0;
+    flashTrackErase();
+}
+
+static void flashTrackInit(void) //call it only once during init
+{
+  bool setDefault=0;
+  uint32_t i;
+  for(i=0; i<(_FLASH_SAVE_SZ_-1) && flash_save[i+1].data != UINT16_MAX; i++);   // Seek through the array
+
+  if(i<(_FLASH_SAVE_SZ_-1)){                                                              // Free slot found
+    for(uint32_t j=i+1; j<_FLASH_SAVE_SZ_; j++) {                                     // Ensure rest of array is erased
+      if((volatile uint16_t)flash_save[j].data != UINT16_MAX){                          // Found unexpected data
+        setDefault=1;                                                                                         // Reset
+        break;
+      }
+    }
+  }                                                                                                           // No free slot found, reset
+  else
+    setDefault=1;
+
+  if(setDefault || (volatile uint16_t)flash_save[i].data==UINT16_MAX){        // Reset defaults or no data
+    flashTrackSetDefaults();
+    i=0;
+  }
+  flash_last = (volatile flash_save_t)flash_save[i];
+  unilink.usb_disc = flash_last.usb_disc;
+  unilink.usb_track = flash_last.usb_track;
+  setAudioSource(((volatile flash_save_t)flash_save[i]).source);
+  flash_index = i+1;
+}
+
+static void flashTrackHandle(void){
+
+    if(HAL_GetTick()<10000) return;             // Ignore first 10 seconds after boot to let everything settle down
+
+    flash_save_t new;
+    new.source = getAudioSource();
+    if(new.source==src_usb){
+        new.usb_disc = unilink.disc;
+        new.usb_track =  unilink.track;
+    }
+    else{
+        new.usb_disc = unilink.usb_disc;
+        new.usb_track =  unilink.usb_track;
+    }
+    if( (flash_last.data != new.data) && (unilink.min || unilink.sec>5) ){      // Stable for at least 5 seconds
+        flash_last = new;
+        if(flash_index >= (_FLASH_SAVE_SZ_-1))                // All positions used
+          flashTrackErase();
+        flashTrackWrite();
+    }
+    if(getAudioSource()==src_usb && usb_has_files()==0)      // 10 second after boot and no usb available, abort usb restore attempt, switch to BT
+       setAudioSource(src_bt) ;
+}
+
+void flashTrackRestoreFromFlash(void){            // FIXME : Not working when booting in Bt mode
+    unilink.usb_disc = flash_last.usb_disc;
+    unilink.usb_track = flash_last.usb_track;
+}

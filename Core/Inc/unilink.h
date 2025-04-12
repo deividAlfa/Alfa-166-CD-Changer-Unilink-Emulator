@@ -274,4 +274,6 @@ void unilink_next_track(void);
 void unilink_backup_usb_position(void);
 void unilink_restore_usb_position(void);
 void unilink_clear_backup_usb_position(void);
+void flashTrackRestoreFromFlash(void);
+void flashTrackSetDefaults(void);
 #endif
