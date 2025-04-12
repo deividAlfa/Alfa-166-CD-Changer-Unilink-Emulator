@@ -84,7 +84,7 @@ void handleAudio(void) {
             else if (audio_status() != audio_play)
                 AudioStart();
         }
-        else if (audio_status() == audio_play)
+        else if (unilink_status() == unilink_idle && audio_status() == audio_play)
                 AudioPause();
     }
     if (AudioStruct.updateBuffer == 1) {
@@ -147,20 +147,20 @@ void AudioStart(void) {
     AudioStruct.remainingSamples = AudioStruct.fillBuffer(
         AudioStruct.PCMbuffer, AudioStruct.PCMSamples);                // Fill the entire buffer with data if no error
 
-    if (AudioStruct.remainingSamples == 0) {				// If zero bytes transferred or error
+    if (AudioStruct.remainingSamples == 0) {                // If zero bytes transferred or error
         AudioStop();                                                 // Stop
         return;
     }
     else {
-        if (AudioStruct.remainingSamples < AudioStruct.PCMSamples) {				// If less than 2048 bytes transferred
-            setFileStatus(file_end);				// Reached the end
+        if (AudioStruct.remainingSamples < AudioStruct.PCMSamples) {                // If less than 2048 bytes transferred
+            setFileStatus(file_end);                // Reached the end
             padBuffer(
                 &AudioStruct.PCMbuffer[AudioStruct.remainingSamples],
-                AudioStruct.PCMSamples - AudioStruct.remainingSamples, 0);		        // Fill the remaining data with silence
+                AudioStruct.PCMSamples - AudioStruct.remainingSamples, 0);              // Fill the remaining data with silence
         }
         HAL_I2S_Transmit_DMA(i2sHandle, (uint16_t*) AudioStruct.PCMbuffer,
             AudioStruct.PCMSamples);                // Start I2S DMA
-        AudioStruct.audioStatus = audio_play;				// Status = playing
+        AudioStruct.audioStatus = audio_play;               // Status = playing
     }
     putString("AUDIO: Playback started\r\n");
 #endif
@@ -230,25 +230,25 @@ void padBuffer(int16_t *dest, int16_t data, uint16_t count) {
 }
 
 void handleBuffer(uint16_t offset) {
-    if (getFileStatus() == file_opened) {				// File opened?
+    if (getFileStatus() == file_opened) {               // File opened?
 
         uint32_t count = AudioStruct.fillBuffer(
             &AudioStruct.PCMbuffer[offset], AudioStruct.PCMSamples / 2);
 
-        if (count < AudioStruct.PCMSamples / 2) {				// If less data than expected
-            setFileStatus(file_end);				// File end reached
-            AudioStruct.remainingSamples -= AudioStruct.PCMSamples / 2;				// Subtract 1/2 buffer count
-            AudioStruct.remainingSamples += count;				// Add the remaining bytes
+        if (count < AudioStruct.PCMSamples / 2) {               // If less data than expected
+            setFileStatus(file_end);                // File end reached
+            AudioStruct.remainingSamples -= AudioStruct.PCMSamples / 2;             // Subtract 1/2 buffer count
+            AudioStruct.remainingSamples += count;              // Add the remaining bytes
             padBuffer(&AudioStruct.PCMbuffer[offset + count], 0,
                 (AudioStruct.PCMSamples / 2) - count);                // Fill the remaining data with silence
         }
     }
-    else {				// File already reached end, so no more data to transfer
+    else {              // File already reached end, so no more data to transfer
         if (AudioStruct.remainingSamples <= AudioStruct.PCMSamples / 2) {                // Remaining bytes less than 1/2 buffer?
-            AudioNext();									// Done, next song
+            AudioNext();                                    // Done, next song
         }
         else {
-            AudioStruct.remainingSamples -= AudioStruct.PCMSamples / 2;				// Buffer not done yet
+            AudioStruct.remainingSamples -= AudioStruct.PCMSamples / 2;             // Buffer not done yet
         }
     }
 
