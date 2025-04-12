@@ -170,25 +170,26 @@ typedef struct {
     union {
         volatile uint32_t flags;
         struct {
-            unsigned update_time :1;
-            unsigned entered_poweroff :1;                // Stores turn off flag after very long timeout, assuming the car is off
-            unsigned play :1;                // Stores play status from master
-            unsigned powered_on :1;                // Stores play status from master when receiving power command
-            unsigned bad_checksum :1;                // Flag, bad packet received, force byte timeout to clean clocks
-            unsigned appoint :1;                // Flag, set if we did appoint
-            unsigned busReset :1;                // Flag, set if master sent the bus reset
-            unsigned hwinit :1;                // Flag, set if unilink hw is initialized
-            unsigned masterinit :1;                // Flag, set if unilink was initialized by master
-            unsigned mode :1;                // SPI transfer mode (1=rx, 0=tx)
-            unsigned fake_change :1;       // Hack to bypass empty disc request from ICS
-            unsigned changing :1;       // Flag set when changed disc or track, used introduce a delay before starting playback (The ICS waits few seconds to enable the audio)
-            unsigned disable_timeout :1;       // Hack to bypass master timeout (For debugging) // TODO: Remove this
-            unsigned force_play :1;       // Hack  (For debugging) // TODO: Remove this
-            unsigned force_stop :1;       // // TODO: Remove this
-            unsigned force_bt :1;       // // TODO: Remove this
-            unsigned force_bt_next :1;       // // TODO: Remove this
-            unsigned force_usb :1;       // // TODO: Remove this
-            unsigned force_aux :1;       // // TODO: Remove this
+            uint8_t received :1;
+            uint8_t update_time :1;
+            uint8_t entered_poweroff :1;                // Stores turn off flag after very long timeout, assuming the car is off
+            uint8_t play :1;                // Stores play status from master
+            uint8_t powered_on :1;                // Stores play status from master when receiving power command
+            uint8_t bad_checksum :1;                // Flag, bad packet received, force byte timeout to clean clocks
+            uint8_t appoint :1;                // Flag, set if we did appoint
+            uint8_t busReset :1;                // Flag, set if master sent the bus reset
+            uint8_t hwinit :1;                // Flag, set if unilink hw is initialized
+            uint8_t masterinit :1;                // Flag, set if unilink was initialized by master
+            uint8_t mode :1;                // SPI transfer mode (1=rx, 0=tx)
+            uint8_t fake_change :1;       // Hack to bypass empty disc request from ICS
+            uint8_t changing :1;       // Flag set when changed disc or track, used introduce a delay before starting playback (The ICS waits few seconds to enable the audio)
+            uint8_t disable_timeout :1;       // Hack to bypass master timeout (For debugging) // TODO: Remove this
+            uint8_t force_play :1;       // Hack  (For debugging) // TODO: Remove this
+            uint8_t force_stop :1;       // // TODO: Remove this
+            uint8_t force_bt :1;       // // TODO: Remove this
+            uint8_t force_bt_next :1;       // // TODO: Remove this
+            uint8_t force_usb :1;       // // TODO: Remove this
+            uint8_t force_aux :1;       // // TODO: Remove this
         };
     };
     uint32_t off_time;                      // Stores the time when the ICS disabled the CD, used to detect quick disable/enable sequence to perform source switching

@@ -27,27 +27,26 @@ slaveBreak_t slaveBreak;                                // Slave break structure
 magazine_t mag_data;                                     // Magazine data/status
 cdinfo_t cd_data[_DISCS_];                // Disc structure, contains "inserted" flag, tracks, minutes, seconds.
 
-void unilink_cold_reset(void);
-void unilink_warm_reset(void);
-bool unilink_checksum(void);                // Checks the integrity of incoming Unilink frames
-void unilink_broadcast(void);                // Handles broadcast unilink commands
-void unilink_myid_cmd(void);                  // Handles our ID unilink commands
-void unilink_appoint(void);                        // Associates with the master
-
-//void unilink_send_cartridge_status(uint8_t status);                // Set status and queue a cartridgeinfo slave message
-void unilink_send_status(uint8_t status);                // Set status and queue an unilink slave message
-void unilink_update_status(void);                // Updates unilink status automatically
-void unilink_set_status(uint8_t status);                   // Set current status
-void unilink_add_slave_break(uint8_t command);                // Create and add a new message to the slave break queue based on the input command
-void unilink_handle_slave_break(void);                // Creates slave break conditions when required
-void unilink_handle_play_time(void);                // Keeps track of the playback time
-void unilink_handle_timeout(void);                // Controls Unilink protocol timeouts
-void unilink_handle_led(void);                       // Handles the activity led
-uint8_t unilink_usb_ready(void);
-void unilink_slave_msg(void);                // Called when receiving a SlavePoll cmd. Handles the msg queue, placing the data in the TX buffer, or creating new one when empty with unilink_auto_poll.
-void unilink_spi_mode(unilink_DataMode_t mode);                // Sets the SPI peripheral to RX/TX or forces the pin output low. Handles different flags and resets the SPI when stuck.
-void unilink_wait_spi_busy(void);                // Waits until the SPI flags are cleared, only used when resetting the peripheral
-void unilink_create_msg(uint8_t *msg, volatile uint8_t *dest);                // Computes the checksums to a basic input message and creates the final Unilink frame.
+static void unilink_cold_reset(void);
+static void unilink_warm_reset(void);
+static bool unilink_checksum(void);                // Checks the integrity of incoming Unilink frames
+static void unilink_broadcast(void);                // Handles broadcast unilink commands
+static void unilink_myid_cmd(void);                  // Handles our ID unilink commands
+static void unilink_appoint(void);                        // Associates with the master
+//static void unilink_send_cartridge_status(uint8_t status);                // Set status and queue a cartridgeinfo slave message
+static void unilink_send_status(uint8_t status);                // Set status and queue an unilink slave message
+static void unilink_update_status(void);                // Updates unilink status automatically
+static void unilink_set_status(uint8_t status);                   // Set current status
+static void unilink_add_slave_break(uint8_t command);                // Create and add a new message to the slave break queue based on the input command
+static void unilink_handle_slave_break(void);                // Creates slave break conditions when required
+static void unilink_handle_play_time(void);                // Keeps track of the playback time
+static void unilink_handle_timeout(void);                // Controls Unilink protocol timeouts
+static void unilink_handle_led(void);                       // Handles the activity led
+static void unilink_slave_msg(void);                // Called when receiving a SlavePoll cmd. Handles the msg queue, placing the data in the TX buffer, or creating new one when empty with unilink_auto_poll.
+static void unilink_spi_mode(unilink_DataMode_t mode);                // Sets the SPI peripheral to RX/TX or forces the pin output low. Handles different flags and resets the SPI when stuck.
+static void unilink_wait_spi_busy(void);                // Waits until the SPI flags are cleared, only used when resetting the peripheral
+static void unilink_create_msg(uint8_t *msg, volatile uint8_t *dest);                // Computes the checksums to a basic input message and creates the final Unilink frame.
+static void unilink_parse(void);
 /*
  void unilink_repeat(bool isOn);                         	                                	    // TODO: Not implemented
  void unilink_intro(bool isOn);
@@ -74,46 +73,10 @@ void unilink_init(SPI_HandleTypeDef *SPI, TIM_HandleTypeDef *tim) {
     SetPinHigh(I2S_MUTE);
 }
 
-void unilink_debug_stuff(void){
-    if(unilink.disable_timeout)                 // Option for debugging purposes // TODO: Remove this
-        unilink.timeout=0;
-    if(unilink.force_aux){
-        unilink.force_play=1;
-        setAudioSource(src_aux);
-        unilink.force_aux=0;
-    }
-    if(unilink.force_usb){
-        unilink.force_play=1;
-        setAudioSource(src_usb);
-        unilink.force_usb=0;
-    }
-    if(unilink.force_bt){
-        unilink.force_play=1;
-        setAudioSource(src_bt);
-        unilink.force_bt=0;
-    }
-    if(unilink.force_bt_next){
-        unilink.force_bt_next=0;
-        BT_Next();
-    }
-
-    if(unilink.force_stop){
-        unilink.play=0;
-        unilink.status=unilink_idle;
-        unilink.force_stop=0;
-    }
-    if(unilink.force_play){
-        unilink.play=1;
-        unilink.status=unilink_playing;
-        unilink.force_play=0;
-    }
-}
-
 void unilink_handle(void) {
 
     flashTrackHandle();
-
-    unilink_debug_stuff();
+    unilink_parse();
     if(unilink.changing && (HAL_GetTick()>unilink.change_delay)){
         unilink.changing = 0;
         SetPinHigh(I2S_MUTE);
@@ -143,7 +106,7 @@ void unilink_handle(void) {
 #endif
 }
 
-bool unilink_checksum(void) {                // Check parity of complete Unilink packet
+static bool unilink_checksum(void) {                // Check parity of complete Unilink packet
     uint8_t i = 0;                                         // local byte counter
     uint8_t checksum = 0;                                      // local checksum
 
@@ -163,7 +126,7 @@ bool unilink_checksum(void) {                // Check parity of complete Unilink
     return 1;                        // Second checksum is invalid, return false
 }
 
-void unilink_handle_led(void) {                                  // Activity LED
+static void unilink_handle_led(void) {                                  // Activity LED
     /*
      #if defined (PASSIVE_MODE) && defined (USB_LOG)                                                 // Passive mode: LED for usb status
      static uint32_t time = 0;
@@ -287,7 +250,7 @@ void unilink_update_magazine(void) {                // usb was inserted, removed
 //                [             ] [c] [            ] [c] [0]                        // 11 byte frame
 //                [             ] [c] [0]                                           // 6 byte frame
 
-void unilink_create_msg(uint8_t *msg, volatile uint8_t *dest) {
+static void unilink_create_msg(uint8_t *msg, volatile uint8_t *dest) {
 #ifndef PASSIVE_MODE
     uint8_t checksum = 0;                                      // local checksum
     uint8_t i = 0;                                                // local index
@@ -330,7 +293,10 @@ void unilink_create_msg(uint8_t *msg, volatile uint8_t *dest) {
 #endif
 }
 
-void unilink_parse(void){
+static void unilink_parse(void){
+    if(unilink.received == 0) return;
+    unilink.received = 0;
+
     if (unilink_checksum()) {
 #ifndef PASSIVE_MODE
         if (unilink.rxData[dst_addr] == addr_broadcast)
@@ -347,7 +313,7 @@ void unilink_parse(void){
     }
 }
 
-void unilink_broadcast(void) {                             // BROADCAST COMMANDS
+static void unilink_broadcast(void) {                             // BROADCAST COMMANDS
 #ifndef PASSIVE_MODE
     switch (unilink.rxData[cmd1]) {                               // Switch CMD1
         case cmd_busRequest:                    // 0x01 Bus requests (Broadcast)
@@ -386,14 +352,15 @@ void unilink_broadcast(void) {                             // BROADCAST COMMANDS
             else if (unilink.rxData[cmd2] == cmd_pwron) {                // 0x89 Power on (Unused?)
                 unilink.play = 0;
                 unilink.powered_on = 1;
-                unilink_set_status(unilink_idle);
+                //unilink_set_status(unilink_idle);
+                unilink_set_status(unilink_changing);       // Workaround for ICS ignoring our reported track: Always start changing disc?
             }
             break;
     }
 #endif
 }
 
-void unilink_myid_cmd(void) {
+static void unilink_myid_cmd(void) {
 #ifndef PASSIVE_MODE
     switch (unilink.rxData[cmd1]) {                               // Switch CMD1
         case cmd_busRequest:                    // 0x01 Bus requests (for my ID)
@@ -424,8 +391,10 @@ void unilink_myid_cmd(void) {
                 if (cd_data[unilink.disc - 1].inserted) {                // If current selected disc is valid
                     if (unilink.track >= cd_data[unilink.disc - 1].tracks)                // If current track is valid
                         unilink.track = 1;                  // Else, reset track
-                    unilink.play = 1;
-                    unilink_send_status(unilink_playing);
+                    unilink.play = 1;                       // Allow play
+
+                    if(unilink_status() == unilink_idle)    // If idling, set play status
+                        unilink_send_status(unilink_playing); // Other states: Will set play automatically when done
                 }
                 else {
                     unilink.disc = 0;
@@ -543,7 +512,7 @@ void unilink_myid_cmd(void) {
 #endif
 }
 
-void unilink_appoint(void) {                            // respond to ID appoint
+static void unilink_appoint(void) {                            // respond to ID appoint
 #ifndef PASSIVE_MODE
     if ((unilink.rxData[cmd1] == 0x02) && unilink.appoint) {                // check for previous Anyone command
         if ((unilink.rxData[dst_addr] & 0xF0) == unilink.groupID) {                // check if packet is for my group
@@ -559,7 +528,7 @@ void unilink_appoint(void) {                            // respond to ID appoint
 #endif
 }
 
-void unilink_update_status(void) {
+static void unilink_update_status(void) {
 #ifndef PASSIVE_MODE
     switch (unilink.status) {
         case unilink_changing:
@@ -582,7 +551,7 @@ void unilink_update_status(void) {
     }
 #endif
 }
-void unilink_set_status(uint8_t status) {
+static void unilink_set_status(uint8_t status) {
 #ifndef PASSIVE_MODE
     unilink.status = status;
 #endif
@@ -591,7 +560,7 @@ void unilink_set_status(uint8_t status) {
 unilinkStatus_t unilink_status(void){
     return(unilink.changing ? unilink_idle : unilink.status);
 }
-void unilink_cold_reset(void) {
+static void unilink_cold_reset(void) {
     unilink.masterinit = 0;
     unilink.busReset = 0;
     unilink.appoint = 0;                // We don't want appoint yet (only after "Anyone" command)
@@ -600,7 +569,7 @@ void unilink_cold_reset(void) {
     unilink_warm_reset();
 }
 
-void unilink_warm_reset(void) {
+static void unilink_warm_reset(void) {
     unilink.powered_on = 0;
     unilink.timeout = 0;
     unilink.rxCount = 0;
@@ -621,7 +590,7 @@ void unilink_warm_reset(void) {
         putString("WARM RESET\r\n");
 }
 
-void unilink_wait_spi_busy(void) {                // Wait until SPI flag busy clears out
+static void unilink_wait_spi_busy(void) {                // Wait until SPI flag busy clears out
     uint32_t t = HAL_GetTick() + 2;                // 2ms timeout should be more than enough
     while (unilink.SPI->Instance->SR & SPI_SR_BSY) {                // Wait until Busy is gone
         if (HAL_GetTick() > t) {
@@ -632,7 +601,7 @@ void unilink_wait_spi_busy(void) {                // Wait until SPI flag busy cl
     }
 }
 
-void unilink_spi_mode(unilink_DataMode_t mode) {
+static void unilink_spi_mode(unilink_DataMode_t mode) {
     __HAL_SPI_DISABLE(unilink.SPI);
     __HAL_SPI_CLEAR_OVRFLAG(unilink.SPI);
     __HAL_SPI_CLEAR_FREFLAG(unilink.SPI);
@@ -762,12 +731,12 @@ void unilink_clear_backup_usb_position(void){
     unilink.usb_disc=0;
     unilink.usb_track=0;
 }
-void unilink_send_status(uint8_t status) {
+static void unilink_send_status(uint8_t status) {
     unilink_set_status(status);
     unilink_add_slave_break(cmd_status);
 }
 
-void unilink_add_slave_break(uint8_t command) {
+static void unilink_add_slave_break(uint8_t command) {
 #ifdef PASSIVE_MODE
     return;
 #endif
@@ -836,7 +805,7 @@ void unilink_add_slave_break(uint8_t command) {
     __enable_irq();
 }
 
-void unilink_handle_play_time(void) {
+static void unilink_handle_play_time(void) {
     if (unilink.status == unilink_playing && unilink.changing==0) {
         unilink.millis++;
         if (unilink.millis == 500)
@@ -853,7 +822,7 @@ void unilink_handle_play_time(void) {
     }
 }
 
-void unilink_handle_timeout(void) {
+static void unilink_handle_timeout(void) {
     unilink.timeout++;
 
     if (unilink.masterinit) {
@@ -876,7 +845,7 @@ void unilink_handle_timeout(void) {
         }
     }
 }
-void unilink_handle_slave_break(void) {
+static void unilink_handle_slave_break(void) {
 
     if (!unilink.masterinit ||                      // Exit if not initialized,
         unilink.mode != mode_rx ||                             // transmitting,
@@ -948,7 +917,7 @@ void unilink_handle_slave_break(void) {
     }
 }
 
-void unilink_slave_msg(void) {
+static void unilink_slave_msg(void) {
     if (slaveBreak.pending == 0) {                // If empty queue, self-generate data
         if(unilink.play)
             unilink_add_slave_break(cmd_time);
@@ -1022,7 +991,7 @@ void unilink_callback(void) {
         if (++unilink.rxCount == unilink.rxSize) {                // Frame complete
             unilinkLogUpdate(mode_rx);
             unilink_spi_mode(mode_SPI_rx);                               // Done
-            unilink_parse();
+            unilink.received = 1;
         }
     }
     else if (unilink.mode == mode_tx
