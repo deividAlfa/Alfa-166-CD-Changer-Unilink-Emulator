@@ -25,6 +25,7 @@
 /* USER CODE BEGIN Includes */
 #include "unilink.h"
 #include "bt.h"
+#include "serial.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
