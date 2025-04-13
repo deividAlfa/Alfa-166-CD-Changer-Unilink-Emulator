@@ -151,7 +151,7 @@ typedef struct {
     volatile uint8_t ownAddr;                // Stores device address
     volatile uint8_t groupID;                // Stores group ID
     volatile uint8_t disc;                // Stores current disc
-    volatile uint8_t track;                // Stores current track
+    volatile int8_t track;                // Stores current track
     volatile uint8_t fake_disc;                // Stores fake disc for hackign the ICS when requesting an empty disc
     volatile uint8_t fake_track;                // Stores fake track
     volatile uint8_t usb_disc;                // Stores usb backup disc

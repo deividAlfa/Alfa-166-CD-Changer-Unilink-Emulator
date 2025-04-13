@@ -130,6 +130,12 @@ void BT_handle_buttons(void) {
             return;
         BTStruct.button.on_time = 0;                                                            // Proceed with OFF time
         BTStruct.button.off_time = now;
+        if(  BTStruct.button.do_play ||                                                         // Play: ON time done, allow play
+            (!BTStruct.button.do_stop && !BTStruct.button.repeat && (BTStruct.button.do_next || BTStruct.button.do_prev)) ){ // Skip done, no repeats pending, allow play
+
+            BTStruct.button.allow_play = 1;
+        }
+
         SetPinLow(BT_PLAY);                                                                     // Release all keys
         SetPinLow(BT_STOP);
         SetPinLow(BT_NEXT);
@@ -143,21 +149,25 @@ void BT_handle_buttons(void) {
         SetPinHigh(BT_STOP);
         BTStruct.button.on_time = now;
         BTStruct.button.busy = 1;
+        BTStruct.button.allow_play = 0;
     }
     else if (BTStruct.button.do_play) {                                                         // Pending PLAY
         SetPinHigh(BT_PLAY);
         BTStruct.button.on_time = now;
         BTStruct.button.busy = 1;
+        BTStruct.button.allow_play = 0;
     }
     else if (BTStruct.button.do_next) {                                                         // Pending NEXT
         SetPinHigh(BT_NEXT);
         BTStruct.button.on_time = now;
         BTStruct.button.busy = 1;
+        BTStruct.button.allow_play = 0;
     }
     else if (BTStruct.button.do_prev) {                                                         // Pending PREV
         SetPinHigh(BT_PREV);
         BTStruct.button.on_time = now;
         BTStruct.button.busy = 1;
+        BTStruct.button.allow_play = 0;
     }
 }
 #endif
@@ -212,5 +222,13 @@ void BT_Prev(void) {
         putString("BT_PREV\r\n");
     }
 #endif
+}
+
+uint8_t BT_Allow_Play(void){
+    return BTStruct.button.allow_play;
+}
+
+uint8_t BT_Busy(void){
+    return BTStruct.button.busy;
 }
 

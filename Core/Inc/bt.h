@@ -42,9 +42,10 @@ typedef struct {
             uint8_t do_stop :1;
             uint8_t do_next :1;
             uint8_t do_prev :1;
-            uint8_t busy :1;
+            uint8_t busy :1;            // Button interface busy
         };
     };
+    uint8_t allow_play;                 // Button interface waiting last "off" time, but playback can resume
     uint8_t repeat;
     uint32_t on_time;
     uint32_t off_time;
@@ -65,5 +66,7 @@ void BT_Stop(void);
 void BT_Play(void);
 void BT_Next(void);
 void BT_Prev(void);
+uint8_t BT_Busy(void);
+uint8_t BT_Allow_Play(void);
 
 #endif /* INC_BT_H_ */

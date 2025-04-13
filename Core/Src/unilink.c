@@ -78,7 +78,7 @@ void unilink_handle(void) {
     flashTrackHandle();
     unilink_parse();
 
-    if(is_dac_muted() && unilink_status() == unilink_playing)
+    if(is_dac_muted() && unilink_status() == unilink_playing && (getAudioSource() != src_bt || BT_Allow_Play()) )
         dac_unmute();
     else if(!is_dac_muted() && unilink_status() != unilink_playing)
         dac_mute();
@@ -418,6 +418,7 @@ static void unilink_myid_cmd(void) {
                 uint32_t src_elapsed = now - unilink.src_time;
                 if(src_elapsed>3000 && off_elapsed>1000 && off_elapsed<3000){  // Quick disable/enable sequence,switch source
                     AudioStop();
+                    unilink_set_status(unilink_changing);
                     unilink_reset_playback_time();
                     unilink.src_time = now;
                     setAudioSource(src_auto);
@@ -448,20 +449,20 @@ static void unilink_myid_cmd(void) {
         case cmd_goto:                                  // 0xB0 Direct Disc keys
         {
             uint8_t disc = unilink.rxData[cmd2] & 0x0F;
-            uint8_t track = bcd2hex(unilink.rxData[d1]);
+            int8_t track = bcd2hex(unilink.rxData[d1]);
             unilink.changing = 1;
             if(track==0) track=1;
             if (getAudioSource() == src_bt && unilink.disc == disc) {
-                if (track == unilink.track) {
+
+                if (track == unilink.track)
                     BT_Prev();
-                }
-                else if (track < unilink.track) {
-                    for (uint8_t i = track; i < unilink.track; i++)
-                        BT_Prev();
-                }
-                else{
-                    for (uint8_t i = unilink.track; i < track; i++)
-                        BT_Next();
+                else if (abs(unilink.track - track) < 5){                    // Sometimes the ICS is too slow and still reports an older track than what we already reported, and might requestand older track than what we already reported, so ignore large skips
+                    if (track < unilink.track)
+                        for (uint8_t i = track; i < unilink.track; i++)
+                            BT_Prev();
+                    else
+                        for (uint8_t i = unilink.track; i < track; i++)
+                            BT_Next();
                 }
             }
             if (unilink.disc != disc) {                             // Disc changed
@@ -764,12 +765,10 @@ static void unilink_add_slave_break(uint8_t command) {
 
             unilink_create_msg(msg, (uint8_t*) slaveBreak.data[i]);
 
-            if(unilink.min || unilink.sec>2){                   // XXX: Keep requested track for 2 seconds before reverting
-                if(getAudioSource() == src_aux)                 // needed to properly detect multiple skips.
-                    unilink.track = 44;
-                else if(getAudioSource() == src_bt)
-                    unilink.track = 88;
-            }
+            if(getAudioSource() == src_aux)       // Aux: Instantly revert to track 44 as there's nothing to skip
+              unilink.track = 44;
+            else if(getAudioSource() == src_bt && !BT_Busy() && (unilink.min || unilink.sec > 5) ) // BT: For multiple skip detection, revert to track 88 after BT buttons are done
+              unilink.track = 88;                                                                  // Wait until BT finished processing the buttons, + 3 seconds to make sure the ICS Acks the new track.
             break;
         }
         case cmd_status:                                              // status
@@ -800,7 +799,7 @@ static void unilink_add_slave_break(uint8_t command) {
 }
 
 static void unilink_handle_play_time(void) {
-    if (unilink.status == unilink_playing && unilink.changing==0) {
+    if (unilink.status == unilink_playing && unilink.changing==0 && (getAudioSource() != src_bt || BT_Allow_Play()) ) {  // Start play time when Unilink changing / BT are done
         unilink.millis++;
         if (unilink.millis == 500)
             unilink.update_time = 1;                // Send time msg twice a second
