@@ -16,5 +16,8 @@ typedef enum {
 void monitorAudioSource(void);
 void setAudioSource(audioSrc_t new_src);
 audioSrc_t getAudioSource(void);
+void dac_mute(void);
+void dac_unmute(void);
+uint8_t is_dac_muted(void);
 
 #endif /* INC_AUDIO_H_ */

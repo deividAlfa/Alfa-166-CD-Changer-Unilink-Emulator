@@ -187,7 +187,6 @@ typedef struct {
     };
     uint32_t off_time;                      // Stores the time when the ICS disabled the CD, used to detect quick disable/enable sequence to perform source switching
     uint32_t src_time;                      // Stores last time src was changed
-    uint32_t change_delay;                  // Stores disc/track delay before playing
     TIM_HandleTypeDef *timer;                // Stores the address of the clock timer handler (for clock timeout)
     SPI_HandleTypeDef *SPI;                // Stores the address of the SPI handler
 } unilink_t;
@@ -252,6 +251,7 @@ extern cdinfo_t cd_data[_DISCS_];
 //#define   msg_intro_end        { addr_master,  unilink.ownAddr, cmd_intro_end, 0x10, 0x00, 0x00, 0x01, (unilink.disc<<4) }
 //#define   msg_discinfo_empty   { addr_master,  unilink.ownAddr, cmd_discinfo, 0x01, 0x99, 0x00, 0x00, 0x01 }
 //#define   msg_cfgchange        { addr_display, unilink.ownAddr, cmd_cfgchange,  0x20, 0x00, 0x00, 0x00, 0x00 }
+
 
 void unilink_init(SPI_HandleTypeDef *SPI, TIM_HandleTypeDef *tim);                // Inits unilink and stores SPI and timer handlers
 void unilink_handle(void);                // Main loop, call as often as possible from main

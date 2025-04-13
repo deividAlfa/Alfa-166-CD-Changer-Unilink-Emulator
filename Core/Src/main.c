@@ -187,11 +187,9 @@ int main(void)
 #ifdef DEBUG_ALLOC
     debug_heap();
 #endif
-    setAudioSource(src_bt);
 #if defined AUDIO_SUPPORT || defined USB_LOG
     initFS();
 #endif
-
     unilink_init(&hspi1, &htim10);
 #ifdef AUDIO_SUPPORT
     initAudio(&hi2s2);

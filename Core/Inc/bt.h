@@ -11,9 +11,8 @@
 #include "main.h"
 
 #define _BT_ON_TIME         10      // Button active time in ms.
-#define _BT_OFF_TIME        800     // Button release time in ms.
-#define _BT_STOP_SKIP_TIME_ 2000    // Button release time in ms, special case for stop-skip action, increased delay, needed to wait for ICS to unmute after skipping tracks
-#define _BT_DEBOUNCE_TIME   5       // For inputs reading status LEDFs
+#define _BT_OFF_TIME        800     // Button release time in ms (To avoid pressing next button too fast).
+#define _BT_DEBOUNCE_TIME   5       // Debounce time for reading BT status LEDs
 
 typedef enum {
     bt_off          = 0,

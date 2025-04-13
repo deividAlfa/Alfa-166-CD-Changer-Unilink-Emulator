@@ -102,8 +102,8 @@ void BT_handle_state(void) {
 void BT_handle_buttons(void) {
     uint32_t now = HAL_GetTick();
     if (BTStruct.button.off_time){
-        if( (BTStruct.button.do_stop && (BTStruct.button.do_next || BTStruct.button.do_prev) && (now - BTStruct.button.off_time)< _BT_STOP_SKIP_TIME_) ||
-            ((now - BTStruct.button.off_time)< _BT_OFF_TIME))                                                                                               // Button OFF time not done, return
+        if( (BTStruct.button.do_stop && (BTStruct.button.do_next || BTStruct.button.do_prev) && unilink_status() != unilink_playing) ||     // Stop beforer skipping, wait until unilink resumes playback to skip tracks
+            ((now - BTStruct.button.off_time)< _BT_OFF_TIME))                                                                               // Button OFF time not done, return
             return;
 
         BTStruct.button.off_time = 0;

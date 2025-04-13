@@ -70,17 +70,18 @@ void unilink_init(SPI_HandleTypeDef *SPI, TIM_HandleTypeDef *tim) {
     HAL_TIM_Base_Start_IT(unilink.timer);
     unilink.hwinit = 1;
     unilink.status = unilink_idle;
-    SetPinHigh(I2S_MUTE);
+    dac_mute();
 }
 
 void unilink_handle(void) {
 
     flashTrackHandle();
     unilink_parse();
-    if(unilink.changing && (HAL_GetTick()>unilink.change_delay)){
-        unilink.changing = 0;
-        SetPinHigh(I2S_MUTE);
-    }
+
+    if(is_dac_muted() && unilink_status() == unilink_playing)
+        dac_unmute();
+    else if(!is_dac_muted() && unilink_status() != unilink_playing)
+        dac_mute();
 
     if (unilink.update_time) {
         unilink.update_time = 0;
@@ -448,6 +449,7 @@ static void unilink_myid_cmd(void) {
         {
             uint8_t disc = unilink.rxData[cmd2] & 0x0F;
             uint8_t track = bcd2hex(unilink.rxData[d1]);
+            unilink.changing = 1;
             if(track==0) track=1;
             if (getAudioSource() == src_bt && unilink.disc == disc) {
                 if (track == unilink.track) {
@@ -462,17 +464,16 @@ static void unilink_myid_cmd(void) {
                         BT_Next();
                 }
             }
-            if (unilink.disc != disc) {                                 // Disc changed
-                unilink.changing = 1;
-                unilink.change_delay = HAL_GetTick()+_CHANGE_DISC_DELAY_;
+            if (unilink.disc != disc) {                             // Disc changed
                 unilink_set_status(unilink_changing);
-                if (!cd_data[disc - 1].inserted) {                // If requested disc is not present
+                if (!cd_data[disc - 1].inserted) {                  // If requested disc is not present
                     unilink.fake_change = 1;                        // Hack to temporally agree with ICS
                     unilink.fake_track = track;
                     unilink.fake_disc = disc;
-                    if (!cd_data[unilink.disc - 1].inserted) {                // If previous disc is empty (Shouldn't happen...)
-                        unilink.disc = 0;                // Set current disc invalid
-                        for (uint8_t i = 0; i < _DISCS_; i++) {                // Find first valid one
+                    AudioPause();                                   // Fake change, only pause current track, resume later
+                    if (!cd_data[unilink.disc - 1].inserted) {      // If previous disc is empty (Shouldn't happen...)
+                        unilink.disc = 0;                           // Set current disc invalid
+                        for (uint8_t i = 0; i < _DISCS_; i++) {     // Find first valid one
                             if (cd_data[i].inserted) {
                                 unilink.disc = i + 1;
                                 break;
@@ -483,18 +484,13 @@ static void unilink_myid_cmd(void) {
                 else
                     updateFiles();                                  // Changing disc ok, force file sort
             }
-            else{
-                unilink.changing = 1;
-                unilink.change_delay = HAL_GetTick()+_CHANGE_TRACK_DELAY_;                                                 // Only changed track
+            else                                                   // Only changed track
                 unilink_set_status(unilink_playing);
-            }
-            if(unilink.changing)
-                SetPinLow(I2S_MUTE);
 
-            if (!unilink.fake_change){                         // Valid disc
+            if (!unilink.fake_change){                              // Valid disc / track
+                AudioStop();
                 unilink.disc = disc;
                 unilink.track = track;
-                AudioStop();
                 unilink_reset_playback_time();
             }
             break;
@@ -524,20 +520,25 @@ static void unilink_appoint(void) {                            // respond to ID 
 static void unilink_update_status(void) {
 #ifndef PASSIVE_MODE
     switch (unilink.status) {
+        /*
+        case unilink_ejecting:
+            unilink.status = unilink_idle;
+            break;
+        */
         case unilink_changing:
             unilink.status = unilink_changed;
             break;
         case unilink_changed:
-            if (unilink.play)
-                unilink.status = unilink_seeking;
-            else
-                unilink.status = unilink_idle;
+            unilink.status = unilink.play ? unilink_playing : unilink_idle;
+            //unilink.status = unilink.play ? unilink_seeking : unilink_idle;
             break;
+            /*
         case unilink_seeking:
             unilink.status = unilink_playing;
             break;
-        case unilink_ejecting:
-            unilink.status = unilink_idle;
+            */
+        case unilink_playing:
+                unilink.changing = 0;
             break;
         default:
             break;
@@ -756,19 +757,19 @@ static void unilink_add_slave_break(uint8_t command) {
         {
             uint8_t msg[] = msg_time;
             if(unilink.fake_change){
+                unilink.fake_change = 0;
                 msg[4] = hex2bcd(unilink.fake_track);           // Send requested disc once to make ICS happy
                 msg[7] = ((unilink.fake_disc<<4)|0xA);          // Otherwise it'll keep asking for the disc over and over
             }                                                   // Sending "Empty disc" cmd causes issues so this is a workaround
 
             unilink_create_msg(msg, (uint8_t*) slaveBreak.data[i]);
 
-            if(!unilink.fake_change && (unilink.min || unilink.sec>2)){ // XXX: Keep requested track for 2 seconds before reverting
-                if(getAudioSource() == src_aux)                         // needed to properly detect multiple skips.
+            if(unilink.min || unilink.sec>2){                   // XXX: Keep requested track for 2 seconds before reverting
+                if(getAudioSource() == src_aux)                 // needed to properly detect multiple skips.
                     unilink.track = 44;
                 else if(getAudioSource() == src_bt)
                     unilink.track = 88;
             }
-            unilink.fake_change=0;
             break;
         }
         case cmd_status:                                              // status

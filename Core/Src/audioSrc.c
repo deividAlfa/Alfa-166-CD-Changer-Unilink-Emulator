@@ -89,3 +89,16 @@ void setAudioSource(audioSrc_t new_src) {
 audioSrc_t getAudioSource(void) {
     return audioSource;
 }
+
+uint8_t dac_muted;
+void dac_mute(void){
+    SetPinLow(I2S_MUTE);
+    dac_muted=1;
+}
+void dac_unmute(void){
+    SetPinHigh(I2S_MUTE);
+    dac_muted=0;
+}
+uint8_t is_dac_muted(void){
+    return dac_muted;
+}
