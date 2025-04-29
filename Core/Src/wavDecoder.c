@@ -21,7 +21,7 @@
 #include "fatfs.h"
 
 result_t checkWav(void) {
-    result_t wav_result = 1;
+    result_t wav_result = OK;
     //char WavInfo[36] = "WAV Info: ";
     wav_header_t wavHeader;
     UINT count = 0;
