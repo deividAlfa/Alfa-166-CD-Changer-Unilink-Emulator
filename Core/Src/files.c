@@ -12,6 +12,7 @@
 #include "audioDecode.h"
 #include "serial.h"
 
+static FRESULT scanFolder(uint8_t folder, uint8_t reset);
 
 DIR dir; /* Directory object */
 FILINFO fil; /* File information */
@@ -46,6 +47,12 @@ result_t gen_usb_discinfo(void){
             cd_data[i].secs = 59;
             cd_data[i].inserted = 1;
             have_files = OK;
+        }
+        else{
+            cd_data[i].tracks = 99;
+            cd_data[i].mins = 99;
+            cd_data[i].secs = 59;
+            cd_data[i].inserted = 0;
         }
     }
     return have_files;
@@ -86,10 +93,13 @@ void handleFS(void) {
         setFileStatus(file_none);
         setDriveStatus(drive_scanning);
         FileStruct.scan_folder = 0;
+        scanFolder(FileStruct.scan_folder, 1);                    // reset folder
         FileStruct.usb_has_files = 0;
     }
     else if (getDriveStatus() == drive_scanning) {  // Scan one folder at a time to avoid blocking the program for too long
-        scanFolder(FileStruct.scan_folder++);                                   // Find and count available folders/files. Filenames are not obtained yet, done in SortFS()
+        if(scanFolder(FileStruct.scan_folder, 0) == FR_OK)
+            scanFolder(++FileStruct.scan_folder, 1);                    // Find and count available folders/files. Filenames are not obtained yet, done in SortFS() . reset folder
+
         if(FileStruct.scan_folder>=_FOLDERS_){
             setDriveStatus(drive_ready);
         #ifdef USB_LOG
@@ -170,19 +180,34 @@ void sortFS(void) {
     FileStruct.files_sorted = 1;
 }
 
-void scanFolder(uint8_t folder) {
-    uint8_t count=0;
-    FileStruct.fileCount[folder] = 0;                        // Clear old value
-    for (uint8_t t = 0; t < _FILETYPES_; t++) {
-        f_findfirst(&dir, &fil, folders[folder], filetypes[t]);                // Find first file of the current type
-        while (fil.fname[0] && count < _MAXFILES_) {                // Stop when no file found, last file or exceeded max file count
-            f_findnext(&dir, &fil);                        // Find next file
+static FRESULT scanFolder(uint8_t folder, uint8_t reset) {
+    static uint8_t type, count;
+    if(reset){
+        type=0;
+        count=0;
+        FileStruct.fileCount[folder] = 0;                           // Clear old value
+        f_findfirst(&dir, &fil, folders[folder], filetypes[type]);  // Find first file of the current type
+        if(fil.fname[0])                                           // Valid file
             count++;
+        return FR_EXIST;
+    }
+    f_findnext(&dir, &fil);                                         // Find next file
+    if(count < _MAXFILES_){                                         // Within limits
+        if(fil.fname[0]){                                           // Valid file
+            count++;                                                // Increase count
+            return FR_EXIST;                                        // Scan only one file at a time to prevent blocking the program flow
+        }
+        else if(++type < _FILETYPES_){                                // Invalid file. Check next filetype
+            f_findfirst(&dir, &fil, folders[folder], filetypes[type]);
+            if(fil.fname[0])                                           // Valid file
+                count++;
+            return FR_EXIST;
         }
     }
-    FileStruct.fileCount[folder] = count;                 // Store found file count
+    FileStruct.fileCount[folder] = count;                           // Done.Store found file count
     if(count) FileStruct.usb_has_files = 1;
-    iprintf("%s: Found %3d files\r\n", folders[folder], count);                // Debug number of files found in folder
+    iprintf("%s: Found %3d files\r\n", folders[folder], count);     // Debug number of files found in folder
+    return FR_OK;                                                   // Folder done
 }
 
 uint8_t openFile(void) {

@@ -55,7 +55,6 @@ uint8_t find_mp3(char *path);
 result_t gen_usb_discinfo(void);
 uint8_t usb_has_files(void);
 void updateFiles(void);
-void scanFolder(uint8_t folder);
 void sortFS(void);
 uint8_t openFile(void);
 void closeFile(void);
