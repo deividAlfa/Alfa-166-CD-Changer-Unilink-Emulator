@@ -72,7 +72,7 @@ void setAudioSource(audioSrc_t new_src) {
 
     if(audioSource == src_usb)                          // Switch to USB, update files
         updateFiles();
-    unilink_update_magazine();                          // Update magazine in
+    unilink_update_magazine();
     WritePin(AUX_EN, (audioSource == src_aux));
     WritePin(I2S_SEL, (audioSource == src_usb));
 

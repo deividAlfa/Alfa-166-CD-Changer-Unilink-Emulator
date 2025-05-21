@@ -10,6 +10,7 @@
 
 #ifdef UNILINK_LOG_ENABLE
 log_t Log;
+static char str[128];
 #endif
 
 const char h2a[] = { '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F' };
@@ -88,7 +89,6 @@ void unlinkLogTimestamp(void) {
 void unilinkLogShow(void) {
 #ifdef UNILINK_LOG_ENABLE
     uint8_t count = 0, i = 0;
-    char str[128];
     uint8_t size = Log.size;
 
     if (Log.available == 0) return;
