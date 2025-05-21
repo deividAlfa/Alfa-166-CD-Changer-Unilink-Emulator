@@ -78,6 +78,9 @@ void unilink_handle(void) {
     flashTrackHandle();
     unilink_parse();
 
+#ifdef UNILINK_LOG_ENABLE
+        unilinkLogShow();
+#endif
     if(is_dac_muted() && unilink_status() == unilink_playing && (getAudioSource() != src_bt || BT_Allow_Play()) )
         dac_unmute();
     else if(!is_dac_muted() && unilink_status() != unilink_playing)
@@ -101,10 +104,6 @@ void unilink_handle(void) {
 #endif
         unilink.entered_poweroff = 1;                // Set this flag to not repeat this. But don't block the program execution,
     }                //  just in case the ICS comes back to live. We'll enable the pin again if that happens...
-#endif
-
-#ifdef UNILINK_LOG_ENABLE
-    unilinkLogShow();
 #endif
 }
 
@@ -290,6 +289,7 @@ static void unilink_parse(void){
 
     if (unilink_checksum()) {
 #ifndef PASSIVE_MODE
+
         if (unilink.rxData[dst_addr] == addr_broadcast)
             unilink_broadcast();                  // parse broadcast packets
         else if (unilink.rxData[dst_addr] == unilink.ownAddr)
@@ -301,6 +301,7 @@ static void unilink_parse(void){
     else {
         unilink.bad_checksum = 1;                // Bad checksum, probably skipped a clock
         putString("BAD CHECKSUM\r\n");                // Resync by ignoring further data until master stops sending clocks and triggers a byte timeout.
+        unilinkLogClear();
     }
 }
 

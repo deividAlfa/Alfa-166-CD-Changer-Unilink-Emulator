@@ -44,6 +44,11 @@ void unilinkLogBreak(void){
     Log.brk=1;
 #endif
 }
+
+void unilinkLogClear(void){
+    Log.available = 0;
+}
+
 void unilinkLogUpdate(unilink_SPImode_t mode) {
 #ifdef UNILINK_LOG_ENABLE
     uint8_t *s;

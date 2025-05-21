@@ -71,6 +71,7 @@ typedef struct {
 
 extern const char h2a[];
 
+void unilinkLogClear(void);
 void unilinkLogUpdate(unilink_SPImode_t mode);
 void unilinkLogBreak(void);
 void unlinkLogTimestamp(void);
