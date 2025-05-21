@@ -147,7 +147,8 @@ typedef enum {                // For magazine cmd2
 } mag_cdtag_t;
 
 typedef struct {
-    volatile unilinkStatus_t status;                // Stores unilink status
+    volatile unilinkStatus_t send_status;                // Stores unilink status to be send
+    volatile unilinkStatus_t status;                // Stores current unilink status
     volatile uint8_t ownAddr;                // Stores device address
     volatile uint8_t groupID;                // Stores group ID
     volatile uint8_t disc;                // Stores current disc
@@ -243,7 +244,7 @@ extern cdinfo_t cd_data[_DISCS_];
 #define   msg_magazine         { addr_master,  unilink.ownAddr, cmd_magazine, mag_data.cmd2 ,0x00 ,0x00 ,0x00 , 0x06 }
 #define   msg_cartridge_info   { mag_data.status == mag_inserted ? addr_display2 : addr_display,  unilink.ownAddr, cmd_cartridgeinfo, mag_data.status, 0x20 ,0x00 ,0x00, (unilink.disc<<4) }
 #define   msg_discinfo         { addr_master,  unilink.ownAddr, cmd_discinfo, 0x01, hex2bcd(cd_data[unilink.disc-1].tracks), hex2bcd(cd_data[unilink.disc-1].mins), hex2bcd(cd_data[unilink.disc-1].secs), (unilink.disc<<4) }
-#define   msg_status           { addr_master,  unilink.ownAddr, cmd_status, unilink.status }
+#define   msg_status           { addr_master,  unilink.ownAddr, cmd_status, unilink.send_status }
 #define   msg_anyoneResp       { addr_master,  unilink.ownAddr, cmd_anyoneResp, 0x11, 0x14, 0xA8, 0x17, 0x60 }        // Becker 2660AR ID (Alfa 166)
 //#define   msg_anyoneResp_alt   { addr_master,  unilink.ownAddr, cmd_anyoneResp, 0x11, 0x15, 0xA8, 0x17, 0x60 }        // Another ID, not used
 //#define   msg_mag_slot_empty   { addr_display,  unilink.ownAddr, cmd_cartridgeinfo, mag_slot_empty, 0x20 ,0x00 ,0x00, (unilink.disc<<4) }

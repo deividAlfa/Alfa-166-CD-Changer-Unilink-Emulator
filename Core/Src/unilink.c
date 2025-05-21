@@ -69,7 +69,7 @@ void unilink_init(SPI_HandleTypeDef *SPI, TIM_HandleTypeDef *tim) {
     __HAL_TIM_SET_AUTORELOAD(unilink.timer, _BYTE_TIMEOUT_);
     HAL_TIM_Base_Start_IT(unilink.timer);
     unilink.hwinit = 1;
-    unilink.status = unilink_idle;
+    unilink_set_status(unilink_idle);;
     dac_mute();
 }
 
@@ -90,6 +90,7 @@ void unilink_handle(void) {
 
 #ifndef PASSIVE_MODE
     if (unilink.entered_poweroff == 0 && unilink.timeout > _PWROFF_TIMEOUT_) {                // 10 second without any activity
+        unilink_cold_reset();
         putString("No activity timeout, shutting down...\r\n");
 #ifdef USB_LOG
         flush_log();
@@ -171,7 +172,7 @@ static void unilink_handle_led(void) {                                  // Activ
      #endif
      */
 }
-
+/*
 void unilink_clear_discs(void) {
     for (uint8_t i = 0; i < _DISCS_; i++) {                       // Clear discs
         cd_data[i].inserted = 0;
@@ -180,41 +181,40 @@ void unilink_clear_discs(void) {
         cd_data[i].secs = 0;
     }
 }
+*/
 
 void unilink_update_magazine(void) {                // usb was inserted, removed or contents changed
 #ifndef PASSIVE_MODE
     mag_data.cmd2 = mag_full;
     unilink.disc = 0;                // First cd is 1. Set to 0 to detect if the following loop fails
-    unilink_clear_discs();
+
     if(getAudioSource()==src_usb){
         unilink_restore_usb_position();
-        if(gen_usb_discinfo() == OK){
-            for (uint8_t i = 0; i < _DISCS_; i++) {
-                if (cd_data[i].inserted) {
-                    if (unilink.disc == 0) {                    // Assign first valid cd
+
+        if(gen_usb_discinfo() == OK){                                               // USB ok
+            if(cd_data[unilink.disc-1].inserted == 0){                              // If restored disc is not valid
+                unilink.track = 0;                                                    // Reset track
+                for (uint8_t i = 0; i < _DISCS_; i++){
+                    if (cd_data[i].inserted && cd_data[unilink.disc-1].tracks != 0){    // Find first valid disc
                         unilink.disc = i + 1;
+                        break;
                     }
                 }
+                if (unilink.track == 0 || unilink.track >= cd_data[unilink.disc - 1].tracks)    // Check if restored track is valid
+                    unilink.track = 1;
             }
         }
-
-        if (unilink.track >= cd_data[unilink.disc - 1].tracks)    // Check if restored track is valid
-            unilink.track = 1;
-
-        if(cd_data[unilink.disc-1].tracks == 0 || !cd_data[unilink.disc-1].inserted){    // Check if restored disc is valid
-            unilink.disc = 0;
-            for (uint8_t i = 0; i < _DISCS_; i++) {                // Else, find the first valid disc
-                if (cd_data[i].inserted) {
-                    unilink.disc = i + 1;
-                    break;
-                }
-            }
-            unilink.track = 1;
-            if(unilink.disc==0)                                     // Shouldn't get here, but just in case
-                unilink_clear_discs();
+        if(unilink.disc==0){                     // USB Empty
+            cd_data[0].tracks = 0xEE;
+            unilink.disc = 1;
+            unilink.track = 33;
         }
     }
-    if (unilink.disc==0) {                   // No files in the drive
+    else{
+        cd_data[0].mins = 88;
+        cd_data[0].secs = 00;
+        cd_data[0].inserted = 1;
+        unilink.disc = 1;
         if(getAudioSource()==src_aux){
             cd_data[0].tracks = 0xAA;
             unilink.track = 44;
@@ -223,14 +223,11 @@ void unilink_update_magazine(void) {                // usb was inserted, removed
             cd_data[0].tracks = 0xBB;
             unilink.track = 88;
         }
-        cd_data[0].mins = 88;
-        cd_data[0].secs = 00;
-        cd_data[0].inserted = 1;
-        unilink.disc = 1;
     }
 
     if (!unilink.masterinit)
         return;
+
     AudioStop();
     unilink_reset_playback_time();
     unilink.play = 0;                   // Don't go into play mode automatically
@@ -312,10 +309,14 @@ static void unilink_broadcast(void) {                             // BROADCAST C
     switch (unilink.rxData[cmd1]) {                               // Switch CMD1
         case cmd_busRequest:                    // 0x01 Bus requests (Broadcast)
         {
+            if(unilink.entered_poweroff){
+                SetPinHigh(SYS_ON);
+                unilink.entered_poweroff = 0;
+                putString("Resuming after activity timeout!\r\n");
+            }
+            // 0x01 0x00 Bus reset
             switch (unilink.rxData[cmd2]) {                       // Switch CMD2
-                case cmd_busReset:                        // 0x01 0x00 Bus reset
-                    SetPinHigh(SYS_ON);                               // Turn on, just in case we were shutting down due a timeout but we got a busReset in time
-                    unilink.entered_poweroff = 0;
+                case cmd_busReset:
                     unilink_cold_reset();
                     unilink.busReset = 1;
                     break;
@@ -333,7 +334,7 @@ static void unilink_broadcast(void) {                             // BROADCAST C
         }
         case cmd_source:                               // 0xF0 SRC Source select
             if (unilink.rxData[cmd2] != unilink.ownAddr)                 // check if interface is deselected
-                unilink.status = unilink_idle;                // set idle status on deselect
+                unilink_set_status(unilink_idle);                // set idle status on deselect
             break;
         case cmd_power:                                      // 0x87 Power Event
             if (unilink.rxData[cmd2] == cmd_pwroff) {                // 0x00 Power off
@@ -343,11 +344,10 @@ static void unilink_broadcast(void) {                             // BROADCAST C
                 AudioPause();
                 unilink.off_time = HAL_GetTick();
             }
-            else if (unilink.rxData[cmd2] == cmd_pwron) {                // 0x89 Power on (Unused?)
+            else if (unilink.rxData[cmd2] == cmd_pwron) {                // 0x89 Power on
                 unilink.play = 0;
                 unilink.powered_on = 1;
-                //unilink_set_status(unilink_idle);
-                unilink_set_status(unilink_changing);       // Workaround for ICS ignoring our reported track: Always start changing disc?
+                unilink_set_status(unilink_idle);
             }
             break;
     }
@@ -379,6 +379,8 @@ static void unilink_myid_cmd(void) {
         }
         case cmd_play:                                              // 0x20 PLAY
         {
+
+            unilink_set_status(unilink_changing);      // Send changing status to force reset ICS disc/track
             if (!unilink.powered_on) break;                 // Not powered on, ignore
             if ((mag_data.status != mag_removed)
                 && (unilink.status != unilink_ejecting)) {                // If magazine is present and we are not ejecting      //FIXME: Ejecting check might be wrong?
@@ -418,7 +420,6 @@ static void unilink_myid_cmd(void) {
                 uint32_t src_elapsed = now - unilink.src_time;
                 if(src_elapsed>3000 && off_elapsed>1000 && off_elapsed<3000){  // Quick disable/enable sequence,switch source
                     AudioStop();
-                    unilink_set_status(unilink_changing);
                     unilink_reset_playback_time();
                     unilink.src_time = now;
                     setAudioSource(src_auto);
@@ -437,7 +438,7 @@ static void unilink_myid_cmd(void) {
                 case cmd_discinfo:                // 0x97 request disc total time and tracks
                 {
                     unilink_add_slave_break(cmd_discinfo);
-                    if(unilink.play)
+                    if(unilink_status()==unilink_playing && unilink.play)
                         unilink_add_slave_break(cmd_time);
                     break;
                 }
@@ -520,17 +521,18 @@ static void unilink_appoint(void) {                            // respond to ID 
 
 static void unilink_update_status(void) {
 #ifndef PASSIVE_MODE
-    switch (unilink.status) {
+    unilink.status = unilink.send_status;
+    switch (unilink.send_status) {
         /*
         case unilink_ejecting:
             unilink.status = unilink_idle;
             break;
         */
         case unilink_changing:
-            unilink.status = unilink_changed;
+            unilink.send_status = unilink_changed;
             break;
         case unilink_changed:
-            unilink.status = unilink.play ? unilink_playing : unilink_idle;
+            unilink.send_status = unilink.play ? unilink_playing : unilink_idle;
             //unilink.status = unilink.play ? unilink_seeking : unilink_idle;
             break;
             /*
@@ -548,11 +550,15 @@ static void unilink_update_status(void) {
 }
 static void unilink_set_status(uint8_t status) {
 #ifndef PASSIVE_MODE
+    unilink.send_status = status;
     unilink.status = status;
 #endif
 }
 
 unilinkStatus_t unilink_status(void){
+    return(unilink.changing ? unilink_idle : unilink.status);
+}
+unilinkStatus_t unilink_sent_status(void){
     return(unilink.changing ? unilink_idle : unilink.status);
 }
 static void unilink_cold_reset(void) {
@@ -912,10 +918,12 @@ static void unilink_handle_slave_break(void) {
 
 static void unilink_slave_msg(void) {
     if (slaveBreak.pending == 0) {                // If empty queue, self-generate data
-        if(unilink.play)
+        if(unilink_status() == unilink_playing && unilink.play)
             unilink_add_slave_break(cmd_time);
-        else
+        else{
             unilink_add_slave_break(cmd_status);
+            unilink_update_status();                // Update our status after sending current one
+        }
     }
     unilink.txSize = slaveBreak.data[slaveBreak.out][parity2_L + 2];
     for (uint8_t i = 0; i < unilink.txSize; i++)                // Copy stored slave break message to Tx Buffer
@@ -1108,7 +1116,8 @@ static void flashTrackInit(void) //call it only once during init
   flash_last = (volatile flash_save_t)flash_save[i];
   unilink.usb_disc = flash_last.usb_disc;
   unilink.usb_track = flash_last.usb_track;
-  setAudioSource(((volatile flash_save_t)flash_save[i]).source);
+  //setAudioSource(((volatile flash_save_t)flash_save[i]).source);// FIXME: Might restore non present sources and get stuck?
+  setAudioSource(src_bt);
   flash_index = i+1;
 }
 
