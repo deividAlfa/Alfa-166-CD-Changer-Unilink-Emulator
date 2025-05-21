@@ -60,6 +60,7 @@ uint8_t openFile(void);
 void closeFile(void);
 void *getFile(void);            // FIXME: Using FIL* requires including "ff.h", which causes havoc in STM32_USB_Host_Library
 void removeDrive(void);
+void remountDrive(void);
 void setDriveStatus(driveStatus_t s);
 driveStatus_t getDriveStatus(void);
 void setFileStatus(fileStatus_t s);

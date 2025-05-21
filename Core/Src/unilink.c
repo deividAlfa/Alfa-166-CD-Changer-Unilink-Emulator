@@ -314,6 +314,7 @@ static void unilink_broadcast(void) {                             // BROADCAST C
                 SetPinHigh(SYS_ON);
                 unilink.entered_poweroff = 0;
                 putString("Resuming after activity timeout!\r\n");
+                remountDrive();
             }
             // 0x01 0x00 Bus reset
             switch (unilink.rxData[cmd2]) {                       // Switch CMD2

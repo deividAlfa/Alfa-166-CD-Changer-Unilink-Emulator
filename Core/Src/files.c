@@ -38,6 +38,10 @@ void removeDrive(void) {
     setDriveStatus(drive_removed);
 }
 
+void remountDrive(void) {
+    setDriveStatus(drive_inserted); //This will trigger an attempt to mount the drive
+}
+
 result_t gen_usb_discinfo(void){
     result_t have_files = ERR;
     for (uint8_t i = 0; i < _FOLDERS_; i++) {                // Transfer file count to cd info (for unilink)
