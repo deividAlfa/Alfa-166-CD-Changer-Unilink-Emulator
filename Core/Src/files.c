@@ -64,9 +64,17 @@ result_t gen_usb_discinfo(void){
 result_t usb_has_files(void){
     return FileStruct.usb_has_files;
 }
+void usb_set_detected_time(void){
+    FileStruct.usb_detected_time = HAL_GetTick();
+}
+uint32_t usb_get_detected_time(void){
+    return FileStruct.usb_detected_time;
+}
+
 void handleFS(void) {
     FRESULT res;
-    if (getDriveStatus() == drive_inserted) {                // Drive present
+    if (getDriveStatus() == drive_inserted && unilink_connected() ) {                // Drive present
+        usb_set_detected_time();
         for (uint8_t i = 0; i < 5; i++) {
             res = f_mount(fat, "", 1);
             if (res == FR_OK)

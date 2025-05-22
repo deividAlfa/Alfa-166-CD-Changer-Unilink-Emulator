@@ -47,6 +47,7 @@ typedef struct {
     char lastFolder[6];                // Ex. "/CD01"
     char lastFile[13];                // Ex "SONG01~1.MP3"
     uint8_t fileCount[_FOLDERS_];                // File count for each folder
+    volatile uint32_t usb_detected_time;
 } fileStruct_t;
 
 void initFS(void);
@@ -54,6 +55,8 @@ void handleFS(void);
 uint8_t find_mp3(char *path);
 result_t gen_usb_discinfo(void);
 uint8_t usb_has_files(void);
+void usb_set_detected_time(void);
+uint32_t usb_get_detected_time(void);
 void updateFiles(void);
 void sortFS(void);
 uint8_t openFile(void);

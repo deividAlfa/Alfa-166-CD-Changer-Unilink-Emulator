@@ -22,7 +22,7 @@ void monitorAudioSource(void){
 
     if(!usb_available && usb_has_files()){
         usb_available = 1;
-        if(now>5000 && current != src_usb)                      // Ignore source changes for the first 5 seconds (Settling down)
+        if(usb_get_detected_time()>5000 && current != src_usb)                      // Ignore source changes for the first 5 seconds (Settling down)
             setAudioSource(src_usb);
     }
     else if(usb_available && usb_has_files() == 0){
