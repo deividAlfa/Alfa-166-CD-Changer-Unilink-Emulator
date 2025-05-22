@@ -15,8 +15,6 @@ uint8_t aux_available=1, aux_available_last, usb_available;   // Preset aux to 1
 uint32_t aux_timer;
 
 void monitorAudioSource(void){
-    uint32_t now = HAL_GetTick();
-
     audioSrc_t current = audioSource;
     uint8_t aux = !ReadPin(AUX_DET);
 
