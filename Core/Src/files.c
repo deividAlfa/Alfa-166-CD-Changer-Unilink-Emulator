@@ -85,6 +85,7 @@ void handleFS(void) {
             setDriveStatus(drive_error);                //Failure on mount
         }
         else {
+            /*
             putString("SYSTEM: Volume mounted\r\n");
             for (uint8_t i = 0; i < 5; i++) {
                 res = f_chdir("/");
@@ -99,6 +100,8 @@ void handleFS(void) {
                 putString("SYSTEM: Opened root folder\r\n");
                 setDriveStatus(drive_mounted);
             }
+            */
+            setDriveStatus(drive_mounted);
         }
     }
     else if (getDriveStatus() == drive_mounted) {

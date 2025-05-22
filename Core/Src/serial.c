@@ -6,6 +6,7 @@
  */
 #include "serial.h"
 #include "unilink_log.h"
+#include "unilink.h"
 
 #ifdef USB_LOG
 #include "fatfs.h"
@@ -124,7 +125,9 @@ void write_log(void) {
         log_file_status = FR_DISK_ERR;
         return;
     }
-
+#ifndef PASSIVE_MODE
+    if(unilink_connected() ) return;
+#endif
     if (log_file_status != FR_OK) {
         res = f_open(&logfile, "log.txt",
             FA_OPEN_APPEND | FA_WRITE | FA_READ);

@@ -256,6 +256,7 @@ extern cdinfo_t cd_data[_DISCS_];
 
 void unilink_init(SPI_HandleTypeDef *SPI, TIM_HandleTypeDef *tim);                // Inits unilink and stores SPI and timer handlers
 void unilink_handle(void);                // Main loop, call as often as possible from main
+uint8_t unilink_connected(void);
 void unilink_update_magazine(void);                // Called by files.c if the USB drive changes, to update the magazine contents based on the new file structure.
 void unilink_clear_discs(void);
 void unilink_tick(void);                // Called by sysTick every 1ms, handles different timings

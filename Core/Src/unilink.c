@@ -69,7 +69,7 @@ void unilink_init(SPI_HandleTypeDef *SPI, TIM_HandleTypeDef *tim) {
     __HAL_TIM_SET_AUTORELOAD(unilink.timer, _BYTE_TIMEOUT_);
     HAL_TIM_Base_Start_IT(unilink.timer);
     unilink.hwinit = 1;
-    unilink_set_status(unilink_idle);;
+    unilink_set_status(unilink_idle);
     dac_mute();
 }
 
@@ -311,10 +311,13 @@ static void unilink_broadcast(void) {                             // BROADCAST C
         case cmd_busRequest:                    // 0x01 Bus requests (Broadcast)
         {
             if(unilink.entered_poweroff){
+                NVIC_SystemReset();
+                /*
                 SetPinHigh(SYS_ON);
                 unilink.entered_poweroff = 0;
                 putString("Resuming after activity timeout!\r\n");
                 remountDrive();
+                */
             }
             // 0x01 0x00 Bus reset
             switch (unilink.rxData[cmd2]) {                       // Switch CMD2
@@ -692,6 +695,10 @@ static void unilink_spi_mode(unilink_DataMode_t mode) {
         __HAL_SPI_ENABLE_IT(unilink.SPI, (SPI_IT_TXE | SPI_IT_ERR));
     }
     __HAL_SPI_ENABLE(unilink.SPI);
+}
+
+uint8_t unilink_connected(void){
+    return (unilink.ownAddr==addr_reset ? 0 : 1);
 }
 
 void unilink_reset_playback_time(void) {
