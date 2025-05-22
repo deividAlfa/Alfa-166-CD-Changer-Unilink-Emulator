@@ -107,6 +107,8 @@ void BT_handle_buttons(void) {
             return;
 
         BTStruct.button.off_time = 0;
+        if(BTStruct.bt_status!=bt_linked)
+            BTStruct.button.flags = 0;
 
         if ( (BTStruct.button.repeat  || BTStruct.button.do_stop) &&                            // Next/prev after stop, or repeat pending
              (BTStruct.button.do_next || BTStruct.button.do_prev)) {
@@ -174,6 +176,7 @@ void BT_handle_buttons(void) {
 
 void BT_Stop(void) {
 #if defined BT_SUPPORT
+    if(BTStruct.bt_status!=bt_linked) return;
     BTStruct.button.flags = 0;
     BTStruct.button.repeat = 0;
     BTStruct.button.do_stop = 1;
@@ -184,6 +187,7 @@ void BT_Stop(void) {
 
 void BT_Play(void) {
 #if defined BT_SUPPORT
+    if(BTStruct.bt_status!=bt_linked) return;
     BTStruct.button.flags = 0;
     BTStruct.button.repeat = 0;
     BTStruct.button.do_play = 1;
@@ -194,6 +198,7 @@ void BT_Play(void) {
 
 void BT_Next(void) {
 #if defined BT_SUPPORT
+    if(BTStruct.bt_status!=bt_linked) return;
     if (BTStruct.button.do_next) {
         BTStruct.button.repeat++;
         putString("BT_NEXT(R)\r\n");
@@ -210,6 +215,7 @@ void BT_Next(void) {
 
 void BT_Prev(void) {
 #if defined BT_SUPPORT
+    if(BTStruct.bt_status!=bt_linked) return;
     if (BTStruct.button.do_prev) {
         BTStruct.button.repeat++;
         putString("BT_PREV(R)\r\n");
