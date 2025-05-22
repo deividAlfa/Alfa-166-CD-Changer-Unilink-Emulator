@@ -17,6 +17,7 @@ uint32_t aux_timer;
 void monitorAudioSource(void){
     audioSrc_t current = audioSource;
     uint8_t aux = !ReadPin(AUX_DET);
+    uint32_t now = HAL_GetTick();
 
     if(!usb_available && usb_has_files()){
         usb_available = 1;
@@ -31,7 +32,7 @@ void monitorAudioSource(void){
 
     if(aux_available_last != aux){
         aux_available_last = aux;
-        aux_timer = HAL_GetTick();
+        aux_timer = now;
     }
     else if (aux_available != aux_available_last && (HAL_GetTick()-aux_timer)>500){
         aux_available = aux_available_last;
@@ -39,6 +40,12 @@ void monitorAudioSource(void){
             setAudioSource(src_aux);
         else if(!aux_available && current == src_aux)
             setAudioSource(src_auto);
+    }
+    if( (now > 5000) &&                                         // 5 second after boot, make sure we're not stuck in a weird state, switch to BT if so
+        ((getAudioSource()==src_usb && usb_available==0) ||
+         (getAudioSource()==src_aux && aux_available==0)) ){
+
+        setAudioSource(src_bt) ;
     }
 }
 

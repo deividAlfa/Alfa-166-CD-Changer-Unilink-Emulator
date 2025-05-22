@@ -1125,14 +1125,13 @@ static void flashTrackInit(void) //call it only once during init
   flash_last = (volatile flash_save_t)flash_save[i];
   unilink.usb_disc = flash_last.usb_disc;
   unilink.usb_track = flash_last.usb_track;
-  //setAudioSource(((volatile flash_save_t)flash_save[i]).source);// FIXME: Might restore non present sources and get stuck?
-  setAudioSource(src_bt);
+  setAudioSource(((volatile flash_save_t)flash_save[i]).source);
   flash_index = i+1;
 }
 
 static void flashTrackHandle(void){
 
-    if(HAL_GetTick()<5000) return;             // Ignore first 5 seconds after boot to let everything settle down
+    if(HAL_GetTick()<5000 || unilink_connected() == 0) return;             // Ignore first 5 seconds after boot to let everything settle down, or if unilink not connected
 
     flash_save_t new;
     new.source = getAudioSource();
@@ -1150,8 +1149,6 @@ static void flashTrackHandle(void){
           flashTrackErase();
         flashTrackWrite();
     }
-    if(getAudioSource()==src_usb && usb_has_files()==0)      // 10 second after boot and no usb available, abort usb restore attempt, switch to BT
-       setAudioSource(src_bt) ;
 }
 
 void flashTrackRestoreFromFlash(void){
