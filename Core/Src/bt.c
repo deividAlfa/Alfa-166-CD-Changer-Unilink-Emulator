@@ -12,13 +12,11 @@
 
 #if defined BT_SUPPORT
 volatile bt_t BTStruct;
-void BT_decode_status(void);
-void BT_handle_state(void);
-void BT_handle_buttons(void);
-void BT_Stop_cmd(void);
-void BT_Play_cmd(void);
-void BT_Next_cmd(void);
-void BT_Prev_cmd(void);
+
+static void BT_decode_status(void);
+static void BT_handle_state(void);
+static void BT_handle_buttons(void);
+static uint8_t BT_isConnected(void);
 
 void BT_handle(void) {
     BT_decode_status();
@@ -26,7 +24,7 @@ void BT_handle(void) {
     BT_handle_buttons();
 }
 
-void BT_decode_status(void) {                                         // Read BT module outputs
+static void BT_decode_status(void) {                                         // Read BT module outputs
     uint8_t bt_state_now = (ReadPin(BT_1V8)) | ((uint8_t)!ReadPin(BT_LED0)<<1) | ((uint8_t)!ReadPin(BT_LED1)<<2);   // Leds are active-low
     uint32_t now = HAL_GetTick();
     if (bt_state_now == BTStruct.readState.last) {
@@ -37,8 +35,10 @@ void BT_decode_status(void) {                                         // Read BT
         BTStruct.readState.time = now + _BT_DEBOUNCE_TIME;                // 20ms without changes to consider stable
     BTStruct.readState.last = bt_state_now;
 }
-
-void BT_handle_state(void) {
+static uint8_t BT_isConnected(void){
+    return((BTStruct.readState.stable & bt_mask)<bt_linked);
+}
+static void BT_handle_state(void) {
     if (BTStruct.bt_status == bt_off){
         SetPinOtype(BT_STOP, OUTPUT_OD);
         SetPinOtype(BT_PLAY, OUTPUT_OD);
@@ -81,7 +81,7 @@ void BT_handle_state(void) {
             BTStruct.bt_status = bt_streaming;
     }
 
-    if (BTStruct.bt_status!=bt_linked && BTStruct.bt_status!=bt_streaming)
+    if (BT_isConnected() == 0)
         return;
 
     if((getAudioSource() != src_bt || unilink_status() != unilink_playing) && BTStruct.set_mode != bt_stop)       // If BT unselected or unilink stopped, stop BT playback
@@ -98,8 +98,7 @@ void BT_handle_state(void) {
             BTStruct.button.do_play = 1;
     }
 }
-
-void BT_handle_buttons(void) {
+static void BT_handle_buttons(void) {
     uint32_t now = HAL_GetTick();
     if (BTStruct.button.off_time){
         if( (BTStruct.button.do_stop && (BTStruct.button.do_next || BTStruct.button.do_prev) && unilink_status() != unilink_playing) ||     // Stop beforer skipping, wait until unilink resumes playback to skip tracks
@@ -107,7 +106,7 @@ void BT_handle_buttons(void) {
             return;
 
         BTStruct.button.off_time = 0;
-        if(BTStruct.bt_status!=bt_linked)
+        if (BT_isConnected() == 0)
             BTStruct.button.flags = 0;
 
         if ( (BTStruct.button.repeat  || BTStruct.button.do_stop) &&                            // Next/prev after stop, or repeat pending
@@ -176,7 +175,7 @@ void BT_handle_buttons(void) {
 
 void BT_Stop(void) {
 #if defined BT_SUPPORT
-    if(BTStruct.bt_status!=bt_linked) return;
+    if (BT_isConnected() == 0) return;
     BTStruct.button.flags = 0;
     BTStruct.button.repeat = 0;
     BTStruct.button.do_stop = 1;
@@ -187,7 +186,7 @@ void BT_Stop(void) {
 
 void BT_Play(void) {
 #if defined BT_SUPPORT
-    if(BTStruct.bt_status!=bt_linked) return;
+    if (BT_isConnected() == 0) return;
     BTStruct.button.flags = 0;
     BTStruct.button.repeat = 0;
     BTStruct.button.do_play = 1;
@@ -198,7 +197,7 @@ void BT_Play(void) {
 
 void BT_Next(void) {
 #if defined BT_SUPPORT
-    if(BTStruct.bt_status!=bt_linked) return;
+    if (BT_isConnected() == 0) return;
     if (BTStruct.button.do_next) {
         BTStruct.button.repeat++;
         putString("BT_NEXT(R)\r\n");
@@ -215,7 +214,7 @@ void BT_Next(void) {
 
 void BT_Prev(void) {
 #if defined BT_SUPPORT
-    if(BTStruct.bt_status!=bt_linked) return;
+    if (BT_isConnected() == 0) return;
     if (BTStruct.button.do_prev) {
         BTStruct.button.repeat++;
         putString("BT_PREV(R)\r\n");
