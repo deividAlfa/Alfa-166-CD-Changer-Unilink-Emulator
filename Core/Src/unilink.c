@@ -187,7 +187,7 @@ void unilink_update_magazine(void) {                // usb was inserted, removed
     mag_data.cmd2 = mag_full;
     unilink.disc = 0;                // First cd is 1. Set to 0 to detect if the following loop fails
 
-    if(getAudioSource()==src_usb){
+    if(getAudioSource()==src_usb){                  // Audio source = USB
         unilink_restore_usb_position();
 
         if(gen_usb_discinfo() == OK){                                               // USB ok
@@ -203,13 +203,13 @@ void unilink_update_magazine(void) {                // usb was inserted, removed
                     unilink.track = 1;
             }
         }
-        if(unilink.disc==0){                     // USB Empty
+        if(unilink.disc==0){                     // USB Empty. Not needed, the system will automatically switch to other mode if USB is empty.
             cd_data[0].tracks = 0xEE;
             unilink.disc = 1;
             unilink.track = 33;
         }
     }
-    else{
+    else{                                       // Audio source = Aux or BT
         cd_data[0].mins = 88;
         cd_data[0].secs = 00;
         cd_data[0].inserted = 1;
