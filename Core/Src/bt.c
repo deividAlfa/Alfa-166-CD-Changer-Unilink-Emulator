@@ -16,7 +16,6 @@ volatile bt_t BTStruct;
 static void BT_decode_status(void);
 static void BT_handle_state(void);
 static void BT_handle_buttons(void);
-static uint8_t BT_isConnected(void);
 
 void BT_handle(void) {
     BT_decode_status();
@@ -35,8 +34,8 @@ static void BT_decode_status(void) {                                         // 
         BTStruct.readState.time = now + _BT_DEBOUNCE_TIME;                // 20ms without changes to consider stable
     BTStruct.readState.last = bt_state_now;
 }
-static uint8_t BT_isConnected(void){
-    return((BTStruct.readState.stable & bt_mask)<bt_linked);
+uint8_t BT_isConnected(void){
+    return((BTStruct.readState.stable & bt_mask) >= bt_linked);
 }
 static void BT_handle_state(void) {
     if (BTStruct.bt_status == bt_off){

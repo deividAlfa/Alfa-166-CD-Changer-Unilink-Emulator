@@ -782,7 +782,7 @@ static void unilink_add_slave_break(uint8_t command) {
 
             if(getAudioSource() == src_aux)       // Aux: Instantly revert to track 44 as there's nothing to skip
               unilink.track = 44;
-            else if(getAudioSource() == src_bt && !BT_Busy() && (unilink.min || unilink.sec > 5) ) // BT: For multiple skip detection, revert to track 88 after BT buttons are done
+            else if(getAudioSource() == src_bt && !BT_Busy() && (unilink.min || unilink.sec > 5 || BT_isConnected() == 0) ) // BT: For multiple skip detection, revert to track 88 after BT buttons are done
               unilink.track = 88;                                                                  // Wait until BT finished processing the buttons, + 3 seconds to make sure the ICS Acks the new track.
             break;
         }

@@ -68,5 +68,6 @@ void BT_Next(void);
 void BT_Prev(void);
 uint8_t BT_Busy(void);
 uint8_t BT_Allow_Play(void);
+uint8_t BT_isConnected(void);
 
 #endif /* INC_BT_H_ */
